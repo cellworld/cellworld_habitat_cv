@@ -18,19 +18,37 @@ elif len(sys.argv) == 3:
 
 
 cellworld_data_folder = os.environ["CELLWORLD_CACHE"]
+cellworld_bin_folder = os.environ["CELLWORLD_BIN"]
+
 occlusions_file_name = "%s.%s.occlusions" % (world_configration, occlusions_name)
 occlusions_path = os.path.join(cellworld_data_folder, "cell_group", occlusions_file_name)
 
-def update_github_repository():
-    commands = ["git pull", "git add *", 'git commit -m "world updated"', "git push"]
+
+def run_commands(commands, folder):
     cur_dir = os.getcwd()
-    os.chdir(cellworld_data_folder)
+    os.chdir(folder)
     for command in commands:
         os.system(command)
     os.chdir(cur_dir)
 
+def update_github_repository():
+    commands = ["git pull", "git add *", 'git commit -m "world updated"', "git push"]
+    run_commands(commands, cellworld_data_folder)
 
-# create_paths(world_configration, occlusions_name)
+
+def create_paths(world_configration, occlusions_name):
+    paths_file_name = "%s.%s.astar" % (world_configration, occlusions_name)
+    paths_path = os.path.join(cellworld_data_folder, "paths", paths_file_name)
+    commands = ["./create_paths -c '%s' -o '%s' -of '%s'" % (world_configration, occlusions_name, paths_path)]
+    run_commands(commands, cellworld_bin_folder)
+
+def create_visibility(world_configration, occlusions_name):
+    paths_file_name = "%s.%s.astar" % (world_configration, occlusions_name)
+    paths_path = os.path.join(cellworld_data_folder, "paths", paths_file_name)
+    commands = ["./create_visibility -c '%s' -o '%s' -of '%s'" % (world_configration, occlusions_name, paths_path)]
+    run_commands(commands, cellworld_bin_folder)
+
+
 # create_cell_visibility(world_configration, occlusions_name)
 # create_occlusions_robot(world_configration, occlusions_name)
 # create_predator_destinations(world_configration, occlusions_name)
@@ -68,10 +86,16 @@ def on_keypress(event):
             world.cells.occluded_cells().builder().save(file_name)
 
     if event.key == "u":
+        print("Saving world changes...")
         world.cells.occluded_cells().builder().save(occlusions_path)
+        print("Generating paths...")
+        create_paths(world_configration, occlusions_name)
+        print("Generating cell visibility graph...")
+        create_visibility(world_configration, occlusions_name)
+        print("Updating repository...")
         update_github_repository()
-        # create_paths(world_configration, occlusions_name)
-        # create_cell_visibility(world_configration, occlusions_name)
+        print("Done")
+        #
         # create_occlusions_robot(world_configration, occlusions_name)
         # create_predator_destinations(world_configration, occlusions_name)
         # create_robot_paths(world_configration, occlusions_name)

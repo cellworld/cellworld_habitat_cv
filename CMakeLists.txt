@@ -150,6 +150,10 @@ add_executable(control_frame_shift
 
 target_link_libraries(control_frame_shift habitat_cv)
 
+add_executable(create_visibility
+        src/tools/create_visibility.cpp)
+
+target_link_libraries(create_visibility cellworld params-cpp)
 
 add_executable(create_paths
         src/tools/create_paths.cpp)
