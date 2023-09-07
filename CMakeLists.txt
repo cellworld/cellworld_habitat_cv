@@ -97,7 +97,7 @@ if (${USE_MCP2221})
 endif()
 
 install_git_dependency ( Pid_controller
-        https://github.com/germanespinosa/cellworld_pid_controller
+        https://github.com/cellworld/cellworld_pid_controller
         CMAKE_PROJECT
         IMPORT_TARGETS
         controller
