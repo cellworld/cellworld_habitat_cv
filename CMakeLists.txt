@@ -120,7 +120,7 @@ install_git_dependency ( Robot_pid_lib
         CONNECTED)
 
 add_executable(agent_tracker
-        src/tools/agent_tracker_B.cpp)
+        src/tools/agent_tracker.cpp)
 
 target_link_libraries(habitat_cv
         PRIVATE

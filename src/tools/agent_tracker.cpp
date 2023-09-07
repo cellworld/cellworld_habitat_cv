@@ -23,7 +23,7 @@ struct Agent_tracker_configuration : Json_object {
             Add_member(videos_folder);
             Add_member(backgrounds_folder);
             Add_member(config_folder);
-            )
+    )
     string logs_folder;
     string videos_folder;
     string backgrounds_folder;
@@ -60,13 +60,12 @@ int main(int argc, char **argv){
 
     Tracking_server tracking_server;
     string cam_config = p.get(params_cpp::Key("-pc","--pixci_config"), "Default");
-    string cam_file;
-    cam_file = config.config_folder + "/EPIX_" + cam_config + ".fmt";
+    string cam_file = config.config_folder + "EPIX_" + cam_config + ".fmt";
     string bg_path = config.backgrounds_folder + cam_config + "/";
+
 
     auto &experiment_client = experiment_server.create_local_client<Cv_server_experiment_client>();
     experiment_client.subscribe();
-
     auto homography_file = "homography_" + p.get(params_cpp::Key("-h","--homography"), "hab1");
     auto camera_configuration = json_cpp::Json_from_file<Camera_configuration>(config.config_folder + homography_file + ".json");
 
@@ -92,35 +91,26 @@ int main(int argc, char **argv){
             peeking,
             "predator",
             "prey");
-    controller_tracking_client.subscribe();
-
+//    controller_tracking_client.subscribe();
 
     auto &controller_experiment_client = experiment_server.create_local_client<Controller_server::Controller_experiment_client>();
     controller_experiment_client.subscribe();
 
-//    robot::Robot_agent robot(limits);
 
-//    if (!robot.connect("192.168.137.155")){
-//        cout << "Failed to connect to predator robot" << endl;
-//        //exit(1);
-//    }
-
-    Tick_agent_moves tick_moves;
-    tick_moves.load("../config/tick_robot_moves.json");
-    std::string joystick_path = "/dev/input/js0";
-
-    auto &prey_tracking_client = tracking_server.create_local_client<Tracking_client>();
-    prey_tracking_client.subscribe();
-    robot::Tick_robot_agent prey_robot(tick_moves, prey_tracking_client, joystick_path);
+    robot::Robot_agent robot(limits, cv_server.reset_robot_connection);
 
     if (!p.contains(params_cpp::Key("-n"))) {
-        if (!prey_robot.connect("192.168.137.155")) {
-            cout << "Failed to connect to prey robot" << endl;
+        if (!robot.connect("192.168.137.155")){
+            cout << "Failed to connect to robot" << endl;
             //exit(1);
         }
     }
+
     Controller_service::set_logs_folder("controller/");
-    Controller_server controller_server("../config/pid.json", prey_robot, controller_tracking_client, controller_experiment_client);
+    Controller_server controller_server("../config/pid.json", robot, controller_tracking_client, controller_experiment_client,
+                                        cv_server.robot_destination,
+                                        cv_server.robot_normalized_destination,
+                                        cv_server.gravity_adjustment);
 
     if (!controller_server.start(Controller_service::get_port())) {
         cout << "failed to start controller" << endl;
@@ -129,24 +119,8 @@ int main(int argc, char **argv){
 
 //     initial corrector
     tracking_server.start(Tracking_service::get_port());
-    auto t = std::thread([&prey_robot, &prey_tracking_client]() {
-        while (!(prey_tracking_client.contains_agent_state("predator"))) this_thread::sleep_for(10ms);
-        prey_robot.correct_robot();
-    });
-
-    tracking_server.start(Tracking_service::get_port());
     cv_server.tracking_process();
     tracking_server.stop();
     experiment_client.disconnect();
     exit(0);
 }
-
-// 2. check current tick values - can do this in a test file - or with old code
-// 3. tune closed loop
-// how to initialize
-// get next move
-// astar revamp
-// autorobot rewrite
-// 1. check message communication
-
-// TODO: check to make sure angle readings from track are accurate
