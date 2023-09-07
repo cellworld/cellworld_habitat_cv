@@ -1,6 +1,16 @@
 #!/bin/bash
+
 kernel_version=$(uname -r)
-cd /usr/local/xcap/drivers
-rmmod pixci
-rm /lib/modules/$kernel_version/kernel/drivers/misc/pixci.ko
-./pixci.sh install /usr/local/xcap/drivers /usr/local/xcap/drivers/x86_64/$kernel_version
+
+printf "Do you wish to reinstall the pixci driver? (yes/NO): "
+read yn
+if [ "$yn" == "y" ]; then
+  cd /usr/local/xcap/drivers
+  echo "Removing current module from kernel"
+  rmmod pixci 2> /dev/null
+  echo "Deleting module file"
+  rm /lib/modules/$kernel_version/kernel/drivers/misc/pixci.ko 2> /dev/null
+  echo "Installing pixci module"
+  ./pixci.sh install /usr/local/xcap/drivers /usr/local/xcap/drivers/x86_64/$kernel_version
+fi
+
