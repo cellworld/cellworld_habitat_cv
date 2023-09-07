@@ -206,24 +206,3 @@ endif()
 install_git_dependency( Catch
         https://github.com/cellworld/dependency_catch
         ADD_SUBDIRECTORY)
-
-###
-### LIBRARY INSTALLATION
-###
-
-export(TARGETS habitat_cv FILE HabitatCvConfig.cmake)
-
-include(GNUInstallDirs)
-
-install(TARGETS habitat_cv EXPORT Habitat_cvConfig
-        ARCHIVE  DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        LIBRARY  DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        RUNTIME  DESTINATION ${CMAKE_INSTALL_BINDIR})
-
-install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-
-install(EXPORT Habitat_cvConfig
-        DESTINATION ${CMAKE_INSTALL_DATADIR}/cmake/Habitat_cv
-        EXPORT_LINK_INTERFACE_LIBRARIES)
-
-export(TARGETS habitat_cv FILE Habitat_cvConfig.cmake)

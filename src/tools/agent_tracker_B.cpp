@@ -60,8 +60,7 @@ int main(int argc, char **argv){
 
     Tracking_server tracking_server;
     string cam_config = p.get(params_cpp::Key("-pc","--pixci_config"), "Default");
-    string cam_file;
-    cam_file = config.config_folder + "/EPIX_" + cam_config + ".fmt";
+    string cam_file = config.config_folder + "EPIX_" + cam_config + ".fmt";
     string bg_path = config.backgrounds_folder + cam_config + "/";
 
 

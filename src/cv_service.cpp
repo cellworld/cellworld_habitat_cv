@@ -189,7 +189,6 @@ namespace habitat_cv {
     };
 
     void Cv_server::tracking_process() {
-        int msg_count = 0;
         bool show_magnets = false;
         Location magnet_distance(0, 12.5);
         Profile sync_led;
