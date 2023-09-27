@@ -6,21 +6,21 @@ using namespace habitat_cv;
 using namespace std;
 namespace habitat_cv {
     Main_layout::Main_layout() :
-            Layout(1125, 1080, Image::Type::rgb),
-            composite({0.0, 45.0}, {1080.0, 1030.0}, Image::Type::rgb),
-            date_time({540, 45}, Image::Type::rgb, {255, 255, 255}, {30, 30, 30}, .8, 0, 1),
-            occlusions({540, 45}, Image::Type::rgb, {255, 255, 255}, {30, 30, 30}, .8, 2, 1),
-            subject({540, 45}, Image::Type::rgb, {255, 255, 255}, {30, 30, 30}, .8, 0, 1),
-            experiment({800, 45}, Image::Type::rgb, {255, 255, 255}, {30, 30, 30}, .8, 0, 1),
-            episode({540, 45}, Image::Type::rgb, {255, 255, 255}, {30, 30, 30}, .8, 2, 1),
+            Layout(1125, 1180, Image::Type::rgb),
+            composite({0.0, 45.0}, {1180.0, 1030.0}, Image::Type::rgb),
+            date_time({590, 45}, Image::Type::rgb, {255, 255, 255}, {30, 30, 30}, .8, 0, 1),
+            occlusions({590, 45}, Image::Type::rgb, {255, 255, 255}, {30, 30, 30}, .8, 2, 1),
+            subject({590, 45}, Image::Type::rgb, {255, 255, 255}, {30, 30, 30}, .8, 0, 1),
+            experiment({900, 45}, Image::Type::rgb, {255, 255, 255}, {30, 30, 30}, .8, 0, 1),
+            episode({590, 45}, Image::Type::rgb, {255, 255, 255}, {30, 30, 30}, .8, 2, 1),
             frame({280, 45}, Image::Type::rgb, {255, 255, 255}, {30, 30, 30}, .8, 2, 1) {
         add_place_holder(composite, {0, 0});
         add_place_holder(date_time, {0, 1080});
         add_place_holder(subject, {0, 1035});
         add_place_holder(experiment, {0, 990});
-        add_place_holder(occlusions, {540, 1080});
-        add_place_holder(episode, {540, 1035});
-        add_place_holder(frame, {800, 990});
+        add_place_holder(occlusions, {590, 1080});
+        add_place_holder(episode, {590, 1035});
+        add_place_holder(frame, {900, 990});
     }
 
     string get_time(double time_stamp) {
@@ -73,10 +73,10 @@ namespace habitat_cv {
     }
 
     Screen_layout::Screen_layout() :
-            Layout(860, 800, Image::rgb),
-            screen({800, 800}, Image::rgb),
-            screen_text({800, 30}, Image::rgb, {255, 255, 255}, {30, 30, 30}, 1, 1, 1),
-            fps_text({800, 30}, Image::rgb, {255, 255, 255}, {30, 30, 30}, 1, 2, 1) {
+            Layout(860, 880, Image::rgb),
+            screen({880, 800}, Image::rgb),
+            screen_text({880, 30}, Image::rgb, {255, 255, 255}, {30, 30, 30}, 1, 1, 1),
+            fps_text({880, 30}, Image::rgb, {255, 255, 255}, {30, 30, 30}, 1, 2, 1) {
         add_place_holder(fps_text, {0, 0});
         add_place_holder(screen, {0, 30});
         add_place_holder(screen_text, {0, 830});

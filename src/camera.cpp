@@ -6,6 +6,7 @@ using namespace std;
 namespace habitat_cv{
 
     cv::Size Camera::frame_size;
+    cv::Size Camera::original_frame_size;
 
 
     void capture_process (Camera *camera){
@@ -13,18 +14,16 @@ namespace habitat_cv{
         long prev = -1;
         int size = Camera::frame_size.height * Camera::frame_size.width;
         pxd_goLivePair(camera->grabber_bit_map,1,2);
+        cout << "X:" << pxd_imageXdim() << ", Y:" << pxd_imageYdim() << ", C:" << pxd_imageCdim() << ", B:" << pxd_imageBdim() << ", Z:" << pxd_imageZdim() << ", Y:" << pxd_imageYdim() << endl;
         while (camera->running){
             int destination = (camera->current_frame + 1) % (int)camera->buffer.size();
             while(pxd_capturedBuffer(camera->grabber_bit_map)==prev && camera->running );
             prev = pxd_capturedBuffer(camera->grabber_bit_map);
             camera->frame_rate.new_frame();
-//            thread([camera](long prev, int destination, int size){
-//4177920
-                pxd_readuchar(camera->grabber_bit_map, prev, 0, 0, -1, -1, camera->buffer[destination].data, size, "Grey");
-//            }, prev, destination, size).detach();
-//            t.wait(.02);
-            camera->buffer[destination].time_stamp.reset();
-            camera->current_frame = destination;
+            if (pxd_readuchar(camera->grabber_bit_map, prev, 0, 0, -1, -1, camera->buffer[destination].data, size,"Grey") > 0) {
+                camera->buffer[destination].time_stamp.reset();
+                camera->current_frame = destination;
+            }
         }
     }
 
@@ -33,16 +32,20 @@ namespace habitat_cv{
             buffer.emplace_back(frame_size.height, frame_size.width, Image::Type::gray);
         }
         current_frame = -1;
+        last_read_frame = - 1;
         capture_thread = std::thread(capture_process,this);
         while (current_frame == -1);
     }
 
     void Camera::init(const std::string &config_file) {
         pxd_PIXCIopen("-DM 0xF", "", config_file.c_str());
-        frame_size = {pxd_imageXdim(), pxd_imageYdim()};
     }
 
+
+
     Image &Camera::get_current_frame() {
+        while (last_read_frame == current_frame) this_thread::sleep_for(1ms); //waits until the next frame is ready
+        last_read_frame = current_frame;
         return buffer[current_frame];
     }
 
@@ -56,6 +59,16 @@ namespace habitat_cv{
     }
 
     Camera::Camera(int grabber_bit_map):Camera(grabber_bit_map, 5) {
+    }
 
+    void Camera::set_offset(int ox, int oy) {
+        offset_x = ox;
+        offset_y = oy;
+    }
+
+    void Camera::set_frame_size(int width, int height) {
+        if (width==-1) width = pxd_imageXdim();
+        if (height==-1) height = pxd_imageYdim();
+        frame_size = {width, height};
     }
 }

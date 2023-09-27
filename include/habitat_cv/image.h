@@ -56,6 +56,9 @@ namespace habitat_cv {
         std::vector<Marker> get_markers();
         Image mask(const Binary_image &);
         Image clone() const;
+        Image crop(const cell_world::Location &, const cv::MatSize &) const;
+        Image crop(const cell_world::Location &, const cell_world::Location &) const;
+        Image crop(const cell_world::Location &, int rows, int cols) const;
     };
 
     struct Images : std::vector<Image> {

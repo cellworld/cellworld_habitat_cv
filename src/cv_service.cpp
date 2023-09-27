@@ -251,6 +251,7 @@ namespace habitat_cv {
         unsigned int current_composite = 0;
         Location_list occlusions_locations;
         Location entrance_location = cv_space.transform( ENTRANCE, canonical_space);
+        entrance_location.x += composites[0].padding;
         float entrance_distance = cv_implementation.cell_transformation.size / 2;
         bool show_robot_destination = false;
         unsigned int prey_entered_arena_indicator = 0;
@@ -340,7 +341,7 @@ namespace habitat_cv {
                 composite.get_video().circle(robot.location, 5, color_robot, true);
                 composite.get_video().arrow(robot.location, to_radians(robot.rotation), 50, color_robot, 3);
                 // TODO: check gabbie added also make it 2 cell size
-                composite.get_video().circle(robot.location, cv_implementation.cell_transformation.size * capture_parameters.distance / 2,color_robot, false);
+                composite.get_video().circle(robot.location, cv_implementation.cell_transformation.size * capture_parameters.distance,color_robot, false);
 
                 if ( show_robot_destination && robot_destination != NOLOCATION) {
                     auto robot_normalized_destination_cv = cv_space.transform(robot_normalized_destination, canonical_space);
@@ -397,6 +398,7 @@ namespace habitat_cv {
                         robot.time_stamp = time_stamp;
                         robot.frame = frame_number;
                         robot.data = predator_data.to_json();
+                        robot.location.x -= composite.padding;
                         auto step = robot.convert(cv_space, canonical_space);
                         tracking_server.send_step(step);
                     }
@@ -404,6 +406,7 @@ namespace habitat_cv {
                        mouse.time_stamp = time_stamp;
                        mouse.frame = frame_number;
                        mouse.rotation = 0;
+                       mouse.location.x -= composite.padding;
                        tracking_server.send_step(mouse.convert(cv_space, canonical_space));
                     }
                     message_mtx.unlock();
@@ -702,7 +705,7 @@ namespace habitat_cv {
         for (auto &t:composite_threads) if (t.joinable()) t.join();
     }
 
-    Cv_server::Cv_server(const Camera_configuration &camera_configuration,
+    Cv_server::Cv_server(Camera_configuration &camera_configuration,
                          const std::string &camera_configuration_file,
                          const std::string &background_path,
                          const std::string &video_path,
@@ -719,7 +722,7 @@ namespace habitat_cv {
             cv_space(cv_implementation.space),
             unlimited(unlimited),
             camera_configuration(camera_configuration),
-            cameras(camera_configuration_file, camera_configuration.order.count()),
+            cameras(camera_configuration_file, camera_configuration),
             main_video(main_layout.size(), Image::rgb),
             raw_video(raw_layout.size(), Image::gray),
             zoom_video(cv::Size(300,300), Image::gray),
@@ -743,7 +746,7 @@ namespace habitat_cv {
             synchronization_device->set_direction(mcp2221::pin0, mcp2221::OUTPUT);
             synchronization_device->set_direction(mcp2221::pin1, mcp2221::INTERRUPT);
             synchronization_device->open();
-            synchronization_device->set_interrupt(mcp2221::RISING, [this](auto p){
+            synchronization_device->set_interrupt(mcp2221::RISING, [this](auto){
                 cout << "sync signal received:" << ts.to_seconds() << endl;
                 if (main_video.is_open()) {
                     sync_log.sync_signal(ts.to_seconds());
@@ -753,6 +756,14 @@ namespace habitat_cv {
         }
         cout << "MCP2221 Syncronization enabled" << endl;
 #endif
+        unsigned int i=0;
+        Camera::set_frame_size(camera_configuration.width,camera_configuration.height);
+        for (auto &ca: cameras.cameras) {
+            if (i < camera_configuration.offsets.size()) {
+                ca->set_offset(camera_configuration.offsets[i].x, camera_configuration.offsets[i].y);
+            }
+            i++;
+        }
     }
 
     void SyncLog::new_log(const string &pfile_path) {

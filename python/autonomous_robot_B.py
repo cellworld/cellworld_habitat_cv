@@ -108,7 +108,7 @@ def on_capture( frame:int ):
     global inertia_buffer
     controller.set_behavior(0)
     inertia_buffer = 1
-    print ("PREY CAPTURED")
+    # print ("PREY CAPTURED")
 
 
 def on_episode_started(parameters):
@@ -331,8 +331,10 @@ while running:
 
 
     # check if prey was seen
+    if prey.is_valid:
+        print(controller_state, episode_in_progress)
     if prey.is_valid and controller_state and episode_in_progress: # controller state allows pause to overrule pursue
-        print("PREY SEEN")
+        print("PURSUE MODE")
         controller.pause()
         controller.set_behavior(1)
         inertia_buffer = 2

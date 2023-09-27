@@ -60,7 +60,7 @@ namespace habitat_cv{
     };
 
     struct Cv_server {
-        explicit Cv_server(const Camera_configuration &camera_configuration,
+        explicit Cv_server(Camera_configuration &camera_configuration,
                            const std::string &camera_configuration_file,
                            const std::string &background_path,
                            const std::string &video_path,

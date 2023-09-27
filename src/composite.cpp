@@ -18,11 +18,14 @@ namespace habitat_cv {
                 .key("cv")
                 .get_resource<World_implementation>();
 
+        for (auto &c:wi.cell_locations) {
+            c.x += padding;
+        }
+        wi.space.center.x += padding;
         cells = Polygon_list(wi.cell_locations, wc.cell_shape, Transformation(wi.cell_transformation.size , wi.cell_transformation.rotation + wi.space.transformation.rotation));
         world = World(wc, wi);
         map = Map(world.create_cell_group());
-
-        composite_size = cv::Size(wi.space.transformation.size, wi.space.transformation.size);
+        composite_size = cv::Size(wi.space.transformation.size + 2 * padding, wi.space.transformation.size);
         crop_size =cv::Size (composite_size.width / configuration.order.cols(), composite_size.height / configuration.order.rows());
 
         composite_video = Image(composite_size.height, composite_size.width, Image::Type::rgb);
@@ -39,7 +42,8 @@ namespace habitat_cv {
         // generate masks
         Image detection_mask_image(composite_size.height, composite_size.width, Image::Type::gray);
         detection_mask_image.clear();
-        Polygon detection_polygon(world.space.center, world.space.shape, world.space.transformation);
+        // we added 50 px padding for detection, if this fails or have unintended consequences they should be removed
+        Polygon detection_polygon(world.space.center, world.space.shape, {world.space.transformation.size + 50,world.space.transformation.rotation});
         detection_mask_image.polygon(detection_polygon,{255},true);
         mask_detection = detection_mask_image.threshold(0);
 
@@ -50,10 +54,10 @@ namespace habitat_cv {
         video_mask_image.polygon(video_polygon,{255},true);
         mask_video = video_mask_image.threshold(0);
         freezing_control_rect = cv::Rect(500,500,5,5);
-
+        auto new_size = composite_size;
         for (unsigned int c = 0; c < configuration.order.count(); c++) {
             warped.emplace_back(composite_size, Image::Type::gray);
-            detection.emplace_back(composite_size, Image::Type::gray);
+            detection.emplace_back(new_size, Image::Type::gray);
             detection_small.emplace_back(detection_small_size, Image::Type::gray);
             raw_small.emplace_back(crop_size, Image::Type::gray);
             freezing_control.emplace_back(cv::Size(5,5), Image::Type::gray);
@@ -107,7 +111,7 @@ namespace habitat_cv {
 
     void Composite::set_cameras_center(const habitat_cv::Images &images) {
         for (unsigned int c = 0; c < images.size(); c++) {
-            cv::Point2f zero_point(images[c].size().width / 2, images[c].size().height / 2);
+            cv::Point2f zero_point(configuration.width / 2 - configuration.offsets[c].x, configuration.height / 2 - configuration.offsets[c].y);
             auto camera_zero_point = get_warped_point(c, zero_point);
             auto camera_zero_location = warped[c].get_location(camera_zero_point);
             cameras_center.push_back(camera_zero_location);
@@ -275,6 +279,7 @@ namespace habitat_cv {
                     raw[camera_index](source).copyTo(zoom(destination));
             }
         }, location);
+        zoom_thread.join();
 #endif
     }
 

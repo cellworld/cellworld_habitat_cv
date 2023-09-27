@@ -41,6 +41,8 @@ namespace habitat_cv{
 
         float camera_height = 205;  // 200 (hab0) cm
         int transition_size = 40;
+        int padding = 50;
+
         Image zoom;
         Image background; // background image
 

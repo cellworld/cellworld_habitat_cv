@@ -1,14 +1,16 @@
 #include <habitat_cv/camera_array.h>
 #include <iostream>
+#include <filesystem>
 using namespace std;
 using namespace habitat_cv;
 
 namespace habitat_cv {
 
-    Camera_array::Camera_array(const std::string &config_file_path, unsigned int camera_count) :
-            config_file_path(config_file_path),camera_count(camera_count){
+    Camera_array::Camera_array(const std::string &config_file_path, Camera_configuration &config) :
+            config_file_path(config_file_path),camera_configuration(config){
         Camera::init(config_file_path);
-        for (unsigned int i=0;i<camera_count;i++){
+        Camera::set_frame_size(-1,-1);
+        for (unsigned int i=0;i<config.centroids.size();i++){
             cameras.emplace_back(new Camera(i, 5));
         }
     }
@@ -35,7 +37,7 @@ namespace habitat_cv {
         cameras.clear();
         Camera::close();
         Camera::init(config_file_path);
-        for (unsigned int i=0;i<camera_count;i++){
+        for (unsigned int i=0;i<camera_configuration.centroids.size();i++){
             cameras.emplace_back(new Camera(i, 5));
         }
     }

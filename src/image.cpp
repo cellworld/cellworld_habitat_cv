@@ -245,6 +245,21 @@ namespace habitat_cv{
 
     }
 
+    Image Image::crop(const cell_world::Location &tl, int rows, int cols) const {
+        cv::Rect c(tl.x, tl.y, cols, rows);
+        auto dst = Image(cv::Size(cols,rows),type);
+        (*this)(c).copyTo(dst);
+        return dst;
+    }
+
+    Image Image::crop(const cell_world::Location &tl, const cv::MatSize &size) const {
+        return crop(tl, size[0], size[1]);
+    }
+
+    Image Image::crop(const cell_world::Location &tl, const cell_world::Location &br) const {
+        return this->crop(tl, abs(tl.y - br.y), abs(tl.x - br.x));
+    }
+
     Binary_image::Binary_image(cv::MatExpr me) : cv::Mat(me) {
     }
 

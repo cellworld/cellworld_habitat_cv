@@ -40,6 +40,8 @@ int main(int argc, char **argv){
     controller::Agent_operational_limits limits;
     limits.load("../config/robot_operational_limits.json"); // robot, ghost
 
+    auto hab_config = p.get(params_cpp::Key("-hc", "--habitat_configuration"), "");
+
     auto occlusions_str = p.get(params_cpp::Key("-w", "--world"),"21_05");
     auto configuration = Resources::from("world_configuration").key("hexagonal").get_resource<World_configuration>();
     auto implementation = Resources::from("world_implementation").key("hexagonal").key("canonical").get_resource<World_implementation>(); // mice, vr, canonical
@@ -59,17 +61,17 @@ int main(int argc, char **argv){
     experiment_server.start(Experiment_service::get_port()); // added by gabbie // 4540
 
     Tracking_server tracking_server;
-    string cam_config = p.get(params_cpp::Key("-pc","--pixci_config"), "Default");
+    string cam_config = p.get(params_cpp::Key("-pc","--pixci_config"), hab_config);
     string cam_file = config.config_folder + "EPIX_" + cam_config + ".fmt";
     string bg_path = config.backgrounds_folder + cam_config + "/";
 
 
     auto &experiment_client = experiment_server.create_local_client<Cv_server_experiment_client>();
     experiment_client.subscribe();
-    auto homography_file = "homography_" + p.get(params_cpp::Key("-h","--homography"), "hab1");
+    auto homography_file = "homography_" + p.get(params_cpp::Key("-h","--homography"), hab_config);
     auto camera_configuration = json_cpp::Json_from_file<Camera_configuration>(config.config_folder + homography_file + ".json");
 
-    auto sync_led_locations_file = "sync_led_locations_" + p.get(params_cpp::Key("-sll","--sync_led_locations"), "hab2");
+    auto sync_led_locations_file = "sync_led_locations_" + p.get(params_cpp::Key("-sll","--sync_led_locations"), hab_config);
     auto sync_led_locations = json_cpp::Json_from_file<Location_list>(config.config_folder + sync_led_locations_file + ".json");
 
     Cv_server cv_server(camera_configuration, cam_file, bg_path, config.videos_folder, tracking_server, experiment_client, sync_led_locations, capture_parameters, p.contains(params_cpp::Key("-u")));

@@ -166,8 +166,8 @@ target_link_libraries(homography habitat_cv)
 
 if (NOT ${USE_FAKE_CAMERA})
 
-    add_executable(camera_test
-            src/tools/camera_test.cpp
+    add_executable(camera_config
+            src/tools/camera_config.cpp
             src/frame_rate.cpp
             src/camera.cpp
             src/camera_array.cpp
@@ -175,12 +175,14 @@ if (NOT ${USE_FAKE_CAMERA})
             src/video.cpp)
 
 
-    target_link_libraries(camera_test
+    target_link_libraries(camera_config
+            habitat_cv
             cellworld
+            params-cpp
              ${OpenCV_LIBS} )
 
     message (STATUS "Linking PIXCI libraries")
-    target_link_libraries(camera_test
+    target_link_libraries(camera_config
         /usr/local/xclib/lib/xclib_x86_64.a m -pthread)
 
     target_link_libraries(habitat_cv
@@ -188,7 +190,7 @@ if (NOT ${USE_FAKE_CAMERA})
          /usr/local/xclib/lib/xclib_x86_64.a m -pthread )
 else()
     add_executable(camera_test
-            src/tools/camera_test.cpp
+            src/tools/camera_config.cpp
             src/frame_rate.cpp
             src/fake_camera.cpp
             src/camera_array.cpp
