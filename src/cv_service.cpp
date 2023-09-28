@@ -320,6 +320,7 @@ namespace habitat_cv {
             composite.get_video().circle(entrance_location, entrance_distance, {120, 120, 0}, false);
 
             //SYNC LED DETECTION
+#ifdef USE_SYNCHRONIZATION
             Images sync_led_images;
             for (int l=0; l<4; l++){
                 auto &li = sync_led_images.emplace_back(images[l](sync_leds_rects[l]), "");
@@ -327,7 +328,7 @@ namespace habitat_cv {
                 auto lv = !(Detection_list::get_detections(ld).filter(sync_led).empty());
                 leds[l] = lv;
             }
-
+#endif
             //PERF_START("SCREEN_ROBOT");
             if (robot_detected) {
                 auto color_robot = robot_color;
@@ -454,8 +455,10 @@ namespace habitat_cv {
                     screen_frame = screen_layout.get_frame(composite.get_subtracted_small(), "difference", fr.filtered_fps);
                     break;
                 case Screen_image::sync_led :
+#ifdef USE_SYNCHRONIZATION
                     screen_frame = screen_layout.get_frame(raw_layout.get_frame(sync_led_images), "sync led", fr.filtered_fps);
                     break;
+#endif
                 case Screen_image::led :
                     screen_frame = screen_layout.get_frame(Image(composite.get_detection_threshold(robot_threshold),""), "LEDs", fr.filtered_fps);
                     break;
