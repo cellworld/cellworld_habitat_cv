@@ -423,6 +423,11 @@ int main(int argc, char **argv) {
                 if (!cs.empty()) camera_configuration.height = stoi(cs);
                 cout << endl;
                 cout << "Crop offsets: " << endl;
+                for (unsigned int i = 0; i < camera_configuration.order.count(); i++) {
+                    if (camera_configuration.offsets.size()<i+1){
+                        camera_configuration.offsets.push_back(Coordinates());
+                    }
+                }
                 for (unsigned int i = 0; i < camera_configuration.offsets.size(); i++){
                     auto &o = camera_configuration.offsets[i];
                     cout <<  "Camera " << i << " current offset ( x=" << o.x << ", y=" << o.y << "): " << endl;

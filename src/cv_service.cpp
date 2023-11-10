@@ -89,10 +89,10 @@ namespace habitat_cv {
             }
             this_thread::sleep_for(100ms);
         }
+        main_video = Video(main_layout.size(), Image::rgb);
         frame_number = 0;
-//        main_video = Video(main_layout.size(), Image::rgb);
-//        raw_video = Video(raw_layout.size(), Image::gray);
-//        zoom_video = Video(cv::Size(300,300), Image::gray);
+        raw_video = Video(raw_layout.size(), Image::gray);
+        zoom_video = Video(cv::Size(300,300), Image::gray);
         if (!main_video.new_video(destination_folder + "/main_" + experiment )) cout << "error creating video: " << destination_folder + "/main_" + experiment << endl;
         if (!raw_video.new_video(destination_folder + "/raw_" + experiment )) cout << "error creating video: " << destination_folder + "/raw_" + experiment << endl;;
         if (!zoom_video.new_video(destination_folder + "/mouse_" + experiment )) cout << "error creating video: " << destination_folder + "/mouse_" + experiment << endl;;;
@@ -262,7 +262,7 @@ namespace habitat_cv {
         Location_list occlusions_locations;
         Location entrance_location = cv_space.transform( ENTRANCE, canonical_space);
         entrance_location.x += composites[0].padding;
-        float entrance_distance = cv_implementation.cell_transformation.size / 2 * 1.25;
+        float entrance_distance = cv_implementation.cell_transformation.size / 2;
         bool show_robot_destination = false;
         unsigned int prey_entered_arena_indicator = 0;
         vector<int> frozen_camera_counters(4, 0);
@@ -330,6 +330,7 @@ namespace habitat_cv {
             composite.get_video().circle(entrance_location, entrance_distance, {120, 120, 0}, false);
 
             //SYNC LED DETECTION
+#ifdef USE_SYNCHRONIZATION
             Images sync_led_images;
             for (int l=0; l<4; l++){
                 auto &li = sync_led_images.emplace_back(images[l](sync_leds_rects[l]), "");
@@ -337,7 +338,7 @@ namespace habitat_cv {
                 auto lv = !(Detection_list::get_detections(ld).filter(sync_led).empty());
                 leds[l] = lv;
             }
-
+#endif
             //PERF_START("SCREEN_ROBOT");
             if (robot_detected) {
                 auto color_robot = robot_color;
@@ -463,21 +464,19 @@ namespace habitat_cv {
                 case Screen_image::difference :
                     screen_frame = screen_layout.get_frame(composite.get_subtracted_small(), "difference", fr.filtered_fps);
                     break;
-                case Screen_image::sync_led : {
-                    auto lc = raw_layout.get_frame(sync_led_images);
-                    screen_frame = screen_layout.get_frame(lc, "sync led", fr.filtered_fps);
-                }
+                case Screen_image::sync_led :
+#ifdef USE_SYNCHRONIZATION
+                    screen_frame = screen_layout.get_frame(raw_layout.get_frame(sync_led_images), "sync led", fr.filtered_fps);
                     break;
+#endif
                 case Screen_image::led :
                     screen_frame = screen_layout.get_frame(Image(composite.get_detection_threshold(robot_threshold),""), "LEDs", fr.filtered_fps);
                     break;
                 case Screen_image::zoom :
                     screen_frame = screen_layout.get_frame(composite.get_zoom(), "zoom", fr.filtered_fps);
                     break;
-                case Screen_image::raw : {
-                    auto rc = composite.get_raw_composite();
-                    screen_frame = screen_layout.get_frame(rc, "raw", fr.filtered_fps);
-                }
+                case Screen_image::raw :
+                    screen_frame = screen_layout.get_frame(composite.get_raw_composite(), "raw", fr.filtered_fps);
                     break;
                 case Screen_image::cam0 :
                     screen_frame = screen_layout.get_frame(composite.get_detection_small(0), "cam0", fr.filtered_fps);
