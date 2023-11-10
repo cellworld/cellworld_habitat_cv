@@ -2,7 +2,7 @@
 
 kernel_version=$(uname -r)
 
-printf "Do you wish to reinstall the pixci driver? (yes/NO): "
+printf "Do you wish to reinstall the pixci driver? (y/n): "
 read yn
 if [ "$yn" == "y" ]; then
   cd /usr/local/xcap/drivers
