@@ -85,7 +85,7 @@ namespace habitat_cv{
         agent_tracking::Tracking_server &tracking_server;
         Cv_server_experiment_client &experiment_client;
 
-        unsigned int mouse_threshold = 65;
+        unsigned int mouse_threshold = 45;
         unsigned int robot_threshold = 237; //250;
 
         cell_world::Capture_parameters capture_parameters;

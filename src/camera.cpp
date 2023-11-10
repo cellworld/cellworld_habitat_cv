@@ -14,7 +14,6 @@ namespace habitat_cv{
         long prev = -1;
         int size = Camera::frame_size.height * Camera::frame_size.width;
         pxd_goLivePair(camera->grabber_bit_map,1,2);
-        cout << "X:" << pxd_imageXdim() << ", Y:" << pxd_imageYdim() << ", C:" << pxd_imageCdim() << ", B:" << pxd_imageBdim() << ", Z:" << pxd_imageZdim() << ", Y:" << pxd_imageYdim() << endl;
         while (camera->running){
             int destination = (camera->current_frame + 1) % (int)camera->buffer.size();
             while(pxd_capturedBuffer(camera->grabber_bit_map)==prev && camera->running );

@@ -7,19 +7,49 @@ using namespace std;
 namespace habitat_cv {
 
     unsigned int fps = 90;
-    std::string extension = ".mp4";
-    int fourcc = cv::VideoWriter::fourcc('m', 'p', '4', 'v');
+
+
 
     Video::Video(const cv::Size &size, Image::Type type):
     frame_count(-1),
     size(size),
-    type(type)
+    type(type),
+    queue_check(5)
     {
+        if (type == Image::rgb) {
+            fourcc = cv::VideoWriter::fourcc('m', 'p', '4', 'v');
+            extension  = ".mp4";
+        } else {
+            fourcc = cv::VideoWriter::fourcc('M', 'J', 'P', 'G');
+            extension  = ".avi";
+        }
+// WORKING BUT VERY BIG VIDEOS
+//        if (type == Image::rgb) {
+//            fourcc = cv::VideoWriter::fourcc('m', 'p', '4', 'v');
+//            extension  = ".mp4";
+//        } else {
+//            fourcc = cv::VideoWriter::fourcc('M', 'J', 'P', 'G');
+//            extension  = ".avi";
+//        }
     }
+
 
     bool Video::add_frame(const Image &frame) {
         if (!running) return false;
-        pending_frames.emplace(frame.clone());
+        if (queue_check.time_out()){
+            queue_check.reset();
+            cout << file_name << " queue size -> " << pending_frames.size() << endl;
+        }
+        // **** will lower framerate if queue gets too large to prevent system crash ****
+        while(pending_frames.size()>100) this_thread::sleep_for(10us);
+
+        if (frame.type != this->type || frame.size() != this->size) {
+            Image temp;
+            cv::resize(frame, temp, this->size);
+            pending_frames.emplace(temp);
+        } else {
+            pending_frames.emplace(frame);
+        }
         return true;
     }
 
@@ -32,6 +62,30 @@ namespace habitat_cv {
         close();
         running = new atomic_bool(true);
         file_name = new_file_name;
+
+#ifdef USE_CUDA_2
+        writer = cv::cudacodec::createVideoWriter(file_name + extension, size, fps);
+        if (writer) {
+            writer_thread = new thread([this]() {
+                frame_count = 0;
+                while (*running || !pending_frames.empty()) {
+                    cv::cuda::GpuMat cuda_frame;
+                    while (*running && pending_frames.empty());
+                    if (!pending_frames.empty()) {
+                        auto frame = pending_frames.front();
+                        pending_frames.pop();
+                        if (frame.type != this->type || frame.size() != this->size) continue;
+                        cuda_frame.upload(frame);
+                        writer->write(cuda_frame);
+                        frame_count++;
+                    }
+                }
+                pending_frames = std::queue<Image>();
+                writer.release();
+            });
+            return true;
+        }
+#else
         if (writer.open(file_name + extension, fourcc, fps, size, type == Image::rgb)) {
             writer_thread = new thread([this]() {
                 frame_count = 0;
@@ -40,7 +94,6 @@ namespace habitat_cv {
                     if (!pending_frames.empty()) {
                         auto frame = pending_frames.front();
                         pending_frames.pop();
-                        if (frame.type != this->type || frame.size() != this->size) continue;
                         writer.write(frame);
                         frame_count++;
                     }
@@ -50,6 +103,7 @@ namespace habitat_cv {
             });
             return true;
         }
+#endif
         return false;
     }
 

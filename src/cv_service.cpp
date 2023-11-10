@@ -72,14 +72,27 @@ namespace habitat_cv {
         std::filesystem::create_directories(destination_folder);
         cout << "Video destination folder: " + destination_folder << endl;
         main_layout.new_episode(subject, experiment, episode, occlusions);
-        while(!video_mutex.try_lock()){
-            cout << "failed to lock  Cv_server::new_episode" << endl;
-            this_thread::sleep_for(10ms);
+        // if the previous video is still writing, this loop waits until it's done
+        Timer t(5);
+        this_thread::sleep_for(100ms);
+        bool msg_show=false;
+        while(!video_mutex.try_lock() && !t.time_out()){
+            //cout << "failed to lock  Cv_server::new_episode" << endl;
+            if (!msg_show) {
+                if (t.to_seconds() > 2) {
+                    cout << "Waiting for previous video to finish writing" << endl;
+                }
+                if (t.time_out()) {
+                    msg_show = true;
+                    cout << "The previous video might still be writing in the background. This could impact the I/O performance." << endl;
+                }
+            }
+            this_thread::sleep_for(100ms);
         }
-        main_video = Video(main_layout.size(), Image::rgb);
         frame_number = 0;
-        raw_video = Video(raw_layout.size(), Image::gray);
-        zoom_video = Video(cv::Size(300,300), Image::gray);
+//        main_video = Video(main_layout.size(), Image::rgb);
+//        raw_video = Video(raw_layout.size(), Image::gray);
+//        zoom_video = Video(cv::Size(300,300), Image::gray);
         if (!main_video.new_video(destination_folder + "/main_" + experiment )) cout << "error creating video: " << destination_folder + "/main_" + experiment << endl;
         if (!raw_video.new_video(destination_folder + "/raw_" + experiment )) cout << "error creating video: " << destination_folder + "/raw_" + experiment << endl;;
         if (!zoom_video.new_video(destination_folder + "/mouse_" + experiment )) cout << "error creating video: " << destination_folder + "/mouse_" + experiment << endl;;;
@@ -106,21 +119,18 @@ namespace habitat_cv {
         }
 #endif
 
-        thread( [this]() {
-                    while(!video_mutex.try_lock()){
-                        this_thread::sleep_for(10ms);
-                    }
-                    try {
-                        main_video.close();
-                        raw_video.close();
-                        zoom_video.close();
-                        sync_log.close();
-                    } catch (...) {
-                        cout << "failed closing videos Cv_server::end_episode" << endl;
-                    };
-                    video_mutex.unlock();
-                }
-        ).detach();
+        while(!video_mutex.try_lock()){
+            this_thread::sleep_for(10ms);
+        }
+        try {
+            main_video.close();
+            raw_video.close();
+            zoom_video.close();
+            sync_log.close();
+        } catch (...) {
+            cout << "failed closing videos Cv_server::end_episode" << endl;
+        };
+        video_mutex.unlock();
         return true;
     }
 
@@ -252,7 +262,7 @@ namespace habitat_cv {
         Location_list occlusions_locations;
         Location entrance_location = cv_space.transform( ENTRANCE, canonical_space);
         entrance_location.x += composites[0].padding;
-        float entrance_distance = cv_implementation.cell_transformation.size / 2;
+        float entrance_distance = cv_implementation.cell_transformation.size / 2 * 1.25;
         bool show_robot_destination = false;
         unsigned int prey_entered_arena_indicator = 0;
         vector<int> frozen_camera_counters(4, 0);
@@ -453,8 +463,10 @@ namespace habitat_cv {
                 case Screen_image::difference :
                     screen_frame = screen_layout.get_frame(composite.get_subtracted_small(), "difference", fr.filtered_fps);
                     break;
-                case Screen_image::sync_led :
-                    screen_frame = screen_layout.get_frame(raw_layout.get_frame(sync_led_images), "sync led", fr.filtered_fps);
+                case Screen_image::sync_led : {
+                    auto lc = raw_layout.get_frame(sync_led_images);
+                    screen_frame = screen_layout.get_frame(lc, "sync led", fr.filtered_fps);
+                }
                     break;
                 case Screen_image::led :
                     screen_frame = screen_layout.get_frame(Image(composite.get_detection_threshold(robot_threshold),""), "LEDs", fr.filtered_fps);
@@ -462,8 +474,10 @@ namespace habitat_cv {
                 case Screen_image::zoom :
                     screen_frame = screen_layout.get_frame(composite.get_zoom(), "zoom", fr.filtered_fps);
                     break;
-                case Screen_image::raw :
-                    screen_frame = screen_layout.get_frame(composite.get_raw_composite(), "raw", fr.filtered_fps);
+                case Screen_image::raw : {
+                    auto rc = composite.get_raw_composite();
+                    screen_frame = screen_layout.get_frame(rc, "raw", fr.filtered_fps);
+                }
                     break;
                 case Screen_image::cam0 :
                     screen_frame = screen_layout.get_frame(composite.get_detection_small(0), "cam0", fr.filtered_fps);

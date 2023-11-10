@@ -52,17 +52,30 @@ namespace habitat_cv {
         occlusions = "World: " + occlusions_name + "  ";
     }
 
+//    Raw_layout::Raw_layout() :
+//            Layout(1080, 1180, Image::Type::gray),
+//            panel0({540, 590}, Image::Type::gray),
+//            panel1({540, 590}, Image::Type::gray),
+//            panel2({540, 590}, Image::Type::gray),
+//            panel3({540, 590}, Image::Type::gray) {
+//        add_place_holder(panel0, {0, 0});
+//        add_place_holder(panel1, {590, 0});
+//        add_place_holder(panel2, {0, 540});
+//        add_place_holder(panel3, {590, 540});
+//    }
+
     Raw_layout::Raw_layout() :
-            Layout(1080, 1080, Image::Type::gray),
-            panel0({540, 540}, Image::Type::gray),
-            panel1({540, 540}, Image::Type::gray),
-            panel2({540, 540}, Image::Type::gray),
-            panel3({540, 540}, Image::Type::gray) {
+            Layout(1080, 1180, Image::Type::gray),
+            panel0({540, 590}, Image::Type::gray),
+            panel1({540, 590}, Image::Type::gray),
+            panel2({540, 590}, Image::Type::gray),
+            panel3({540, 590}, Image::Type::gray) {
         add_place_holder(panel0, {0, 0});
-        add_place_holder(panel1, {540, 0});
+        add_place_holder(panel1, {590, 0});
         add_place_holder(panel2, {0, 540});
-        add_place_holder(panel3, {540, 540});
+        add_place_holder(panel3, {590, 540});
     }
+
 
     habitat_cv::Image Raw_layout::get_frame(const Images &images) {
         panel0 = images[0];
