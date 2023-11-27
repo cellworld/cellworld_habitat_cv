@@ -40,6 +40,8 @@ int main(int argc, char **argv){
     controller::Agent_operational_limits limits;
     limits.load("../config/robot_operational_limits.json"); // robot, ghost
 
+    bool fake_robot = p.contains(params_cpp::Key("-fr"));
+
     auto hab_config = p.get(params_cpp::Key("-hc", "--habitat_configuration"), "");
 
     auto occlusions_str = p.get(params_cpp::Key("-w", "--world"),"21_05");
@@ -80,6 +82,30 @@ int main(int argc, char **argv){
     Cv_server cv_server(camera_configuration, cam_file, bg_path, config.videos_folder, tracking_server, experiment_client, sync_led_locations, capture_parameters, p.contains(params_cpp::Key("-u")));
     auto &experiment_tracking_client = tracking_server.create_local_client<Experiment_tracking_client>();
     experiment_tracking_client.subscribe();
+
+    thread *fake_robot_thread = NULL;
+    atomic<bool> fake_robot_running = false;
+    auto fake_robot_location = Location(.5,.5); // Container of Locations
+    if (fake_robot) {
+        fake_robot_running = true;
+        fake_robot_thread = new thread([&fake_robot_location, &tracking_server, &fake_robot_running](){
+            int frame = 0;
+            Timer d;
+            auto step = Step();
+            // Send out "predator_step" while we are running fake_robot
+            while (fake_robot_running) {
+                Timer t(.05);
+                while (!t.time_out());
+                step.agent_name = "predator";
+                step.frame = frame ++;
+                step.time_stamp = d.to_seconds();
+                step.rotation = to_degrees(step.location.atan(fake_robot_location));
+                step.location = fake_robot_location;
+                tracking_server.send_step(step);
+            }
+        });
+    }
+
     experiment_server.set_tracking_client(experiment_tracking_client);
 
     cv_server.occlusions = world.create_cell_group().occluded_cells();
@@ -127,5 +153,10 @@ int main(int argc, char **argv){
     cv_server.tracking_process();
     tracking_server.stop();
     experiment_client.disconnect();
+    if (fake_robot_running) {
+        fake_robot_running = false;
+        if (fake_robot_thread->joinable()) fake_robot_thread->join();
+        delete (fake_robot_thread);
+    }
     exit(0);
 }
