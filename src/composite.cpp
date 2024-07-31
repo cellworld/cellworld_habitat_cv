@@ -43,7 +43,7 @@ namespace habitat_cv {
         Image detection_mask_image(composite_size.height, composite_size.width, Image::Type::gray);
         detection_mask_image.clear();
         // we added 50 px padding for detection, if this fails or have unintended consequences they should be removed
-        Polygon detection_polygon(world.space.center, world.space.shape, {world.space.transformation.size + 50,world.space.transformation.rotation});
+        Polygon detection_polygon(world.space.center, world.space.shape, {world.space.transformation.size,world.space.transformation.rotation});
         detection_mask_image.polygon(detection_polygon,{255},true);
         mask_detection = detection_mask_image.threshold(0);
 
@@ -75,6 +75,7 @@ namespace habitat_cv {
         gpu_mask_detection.upload(mask_detection);
         gpu_mask_video.upload(mask_video);
         gpu_zoom.upload(zoom);
+        gpu_composite_small.upload(composite_small);
         for (unsigned int c = 0; c < configuration.order.count(); c++) {
             gpu_zoom_stream = cv::cuda::Stream(cudaStreamNonBlocking);
             gpu_detection_streams.emplace_back(cudaStreamNonBlocking);
@@ -150,7 +151,10 @@ namespace habitat_cv {
             cv::cuda::absdiff(gpu_composite_detection, gpu_background, gpu_composite_subtracted, gpu_subtracted_stream);
             cv::cuda::resize(gpu_composite_subtracted, gpu_composite_subtracted_small, detection_small_size, 0, 0,
                              cv::INTER_LINEAR, gpu_subtracted_stream);
+            cv::cuda::resize(gpu_composite, gpu_composite_small, detection_small_size, 0, 0, cv::INTER_LINEAR, gpu_subtracted_stream);
+
             gpu_composite_subtracted_small.download(composite_subtracted_small, gpu_subtracted_stream);
+            gpu_composite_small.download(composite_small, gpu_subtracted_stream);
 
             for (unsigned int c = 0; c < configuration.order.count(); c++) {
                 gpu_warped[c](crop_rectangles[c]).copyTo(gpu_composite(crop_rectangles[c]), gpu_video_stream);
@@ -385,4 +389,11 @@ namespace habitat_cv {
         }
         return detection_camera_threshold[c];
         }
+
+    Image &Composite::get_composite_small() {
+#ifdef USE_CUDA
+        gpu_subtracted_stream.waitForCompletion();
+#endif
+        return composite_small;
+    }
 }
