@@ -129,7 +129,7 @@ def on_episode_finished(m):
     controller_timer.reset()                                                                # reset controller timer
     destination_circle.set(center=(current_predator_destination.x, current_predator_destination.y), color=spawn_color)
     # TODO: add optional ambush cell message so that we send steps when prey in region probably to set behavior ********
-
+    controller.set_behavior()
 def on_episode_started(parameters):
     global episode_in_progress, current_experiment_name
     current_experiment_name = parameters.experiment_name
@@ -236,9 +236,12 @@ controller.on_step = on_step
 
 # MAIN ##############################################################################################################
 running = True
+controller_kill_switch = 0
+
 while running:
     # IF PAUSE DONT EXECUTE REST OF LOOP ROBOT STOPS MOVING
     if not controller_kill_switch:
+        controller.set_destination(Location(0,0), 90.0)
         controller.pause()
         continue
 
