@@ -4,55 +4,34 @@ from cellworld_experiment_service import ExperimentClient
 from time import sleep
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+import math
+import pickle
 
-########### CONSTANTS ############
-experiment_log_folder = "/research/data"
-
-
-###############################
-
-
-class AgentData:
-    def __init__(self, agent_name: str):
-        self.is_valid = None # timers for predator and prey updates
-        self.step = Step()
-        self.step.agent_name = agent_name
-
-
-def get_experiment_folder (experiment_name):
-    return experiment_log_folder + "/" + experiment_name.split('_')[0] + "/" + experiment_name
-
-def get_episode_folder (experiment_name, episode_number):
-    return get_experiment_folder(experiment_name) + f"/episode_{episode_number:03}"
+df = pd.DataFrame(columns=["Episode", "Type", "Data"])
+def fix_coordinate_system(ang):
+    ang = (ang - 90) * -1
+    while ang < 0:
+        ang = ang + 360
+    while ang > 360:
+        ang = ang - 360
+    return ang
 
 
-def get_episode_file (experiment_name, episode_number):
-    return get_episode_folder(experiment_name, episode_number) + f"/{experiment_name}_episode_{episode_number:03}.json"
+def get_angle(current_location, target_location):
+    dx = target_location.x - current_location.x
+    dy = target_location.y - current_location.y
+    angle_radians = math.atan2(dy, dx)
+    # return fix_coordinate_system(math.degrees(angle_radians))
+    return fix_coordinate_system(round(math.degrees(angle_radians), 0))
 
 
-def on_keypress(event):
-    """
-    Sets up keyboard intervention
-    """
-    global running, current_predator_destination, controller_timer, controller_state
+def log_data(pickle_file_path, episode, entry_type, data, df):
+    # TO USE: df = log_data(pickle_file_path, i, "ambush_cell_id", 1, df)
+    new_entry_df = pd.DataFrame([[episode, entry_type, data]], columns=["Episode", "Type", "Data"])
+    df = pd.concat([df, new_entry_df], ignore_index=True)
+    with open(pickle_file_path, 'wb') as f:
+        pickle.dump(df, f)
+    return df
 
-    if event.key == "p":
-        print("pause")
-        controller.pause()
-        controller_state = 0
-    if event.key == "r":
-        print("resume")
-        controller.resume()
-        controller_state = 1
-    if event.key == "q":
-        print("quit")
-        controller.pause()
-        running = False
-    if event.key == "m":
-        print("auto")
-        controller_state = 1
-        controller.resume()                                     # change controller state to Playing
-        controller_timer = Timer(5.0)                           # set initial destination and timer
-        current_predator_destination = hidden_location()        # assign new destination
-        controller.set_destination(current_predator_destination)
-        destination_circle.set(center = (current_predator_destination.x, current_predator_destination.y), color = explore_color)
+

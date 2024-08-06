@@ -190,7 +190,6 @@ def on_click(event):
     if event.button == 1:
         controller.resume()
         location = Location(event.xdata, event.ydata)
-        location = Location(event.xdata, event.ydata)
         cell_id = world.cells.find(location)
         destination_cell = world.cells[cell_id]
         if destination_cell.occluded:
