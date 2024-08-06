@@ -94,19 +94,19 @@ def on_episode_finished(m):
     controller.pause()              # TODO: do I need this
     episode_in_progress = False
 
-    # # write to pickle file
-    # pickle_file_path = f'/research/data/RobotStrategyExtraData/{current_experiment_name}.pkl'
-    # df = log_data(pickle_file_path, episode_count, "ambush_cell_id", AmbushManager.current_ambush_cell, df)
-    # episode_count += 1
+    # write to pickle file
+    pickle_file_path = f'/research/data/RobotStrategyExtraData/{current_experiment_name}.pkl'
+    df = log_data(pickle_file_path, episode_count, "ambush_cell_id", AmbushManager.current_ambush_cell, df)
+    episode_count += 1
 
     # update ambush cell bias - loop through previous trajectory
     experiment_state = experiment_service.get_experiment(current_experiment_name)
     last_episode_file = get_episode_file(current_experiment_name, experiment_state.episode_count-1)
     last_trajectory = Episode.load_from_file(last_episode_file).trajectories.get_agent_trajectory("mouse_0")
     last_trajectory_np = last_trajectory.get('location').to_numpy_array() # TODO: May need to update cellworld
-    print(last_trajectory_np)
 
-    if last_trajectory_np.size() > 0:
+    # AmbushManager.update_bias(last_trajectory_np)
+    if last_trajectory_np.shape[0] != 0:
         AmbushManager.update_bias(last_trajectory_np)                           # plots new bias
 
     # select ambush cell for next episode
@@ -213,7 +213,7 @@ def on_click(event):
 class AmbushManager:
     current_ambush_cell = None   # cell_id
     bias = {32: 1e-9, 286: 1e-9, 253: 1e-9, 269: 1e-9, 173: 1e-9}
-    decay_rate = 0.75
+    decay_rate = 1.0
     state = None            # Surge, Ambush, Ambush Reached
     prey_state = 0          # True if last prey step in ambush zone
 
@@ -233,43 +233,45 @@ class AmbushManager:
     @classmethod
     def update_bias(cls, prey_trajectory):
         print("BIAS UPDATE")
-        # # Decay the scores for each ambush cell
-        # for ambush_cell_id in cls.bias.keys():
-        #     cls.bias[ambush_cell_id] *= cls.decay_rate
-        # print("decay")
-        # print(prey_trajectory)
-        # # Track entrance and exit state for each ambush zone
-        # entered_cells = set()
-        # for x, y in prey_trajectory:
-        #     current_position = Location(x, y)
-        #     for ambush_cell_id in cls.bias.keys():
-        #         cell_location = world.cells[ambush_cell_id].location
-        #         if current_position.dist(cell_location) <= cell_size * 3:
-        #             if ambush_cell_id not in entered_cells:
-        #                 # The agent has entered a new ambush zone
-        #                 entered_cells.add(ambush_cell_id)
-        #                 cls.bias[ambush_cell_id] += 1.0
-        #         else:
-        #             # The agent has exited the ambush zone remove it from set
-        #             if ambush_cell_id in entered_cells:
-        #                 entered_cells.remove(ambush_cell_id)
-        # print("updates2")
-        # # special rule for ambush cell with cell id = 32
-        # values = list(cls.bias.values())
-        # max_value, second_max_value = sorted(set(values), reverse=True)[:2]   # TODO: play around with decay and saturation limit
-        # if cls.bias[32] == max_value:
-        #     cls.bias[32] = second_max_value
-        #
-        # # saturation limit
-        # for ambush_cell_id in cls.bias.keys():
-        #     if cls.bias[ambush_cell_id] > 10:
-        #         cls.bias[ambush_cell_id] = 10
+        # Decay the scores for each ambush cell
+        for ambush_cell_id in cls.bias.keys():
+            cls.bias[ambush_cell_id] *= cls.decay_rate
+        print("decay", cls.bias)
+        print(prey_trajectory)
+        # Track entrance and exit state for each ambush zone
+        entered_cells = set()
+        for x, y in prey_trajectory:
+            current_position = Location(x, y)
+            for ambush_cell_id in cls.bias.keys():
+                cell_location = world.cells[ambush_cell_id].location
+                if current_position.dist(cell_location) <= cell_size * 3:
+                    if ambush_cell_id not in entered_cells:
+                        # The agent has entered a new ambush zone
+                        entered_cells.add(ambush_cell_id)
+                        cls.bias[ambush_cell_id] += 1.0
+                else:
+                    # The agent has exited the ambush zone remove it from set
+                    if ambush_cell_id in entered_cells:
+                        entered_cells.remove(ambush_cell_id)
+
+        # special rule for ambush cell with cell id = 32
+        values = list(cls.bias.values())
+        max_value, second_max_value = sorted(set(values), reverse=True)[:2]   # TODO: play around with decay and saturation limit
+        if cls.bias[32] == max_value:
+            print("32 max")
+            cls.bias[32] = second_max_value
+
+        # saturation limit
+        for ambush_cell_id in cls.bias.keys():
+            if cls.bias[ambush_cell_id] > 10:
+                cls.bias[ambush_cell_id] = 10
 
         # plot new bias for ambush cells
-        # print("plot")
-        # cmap = plt.cm.Reds([weight / max(cls.bias.values()) for weight in cls.bias.values()])
-        # for i, ambush_cell_id in enumerate(cls.bias.keys()):
-        #     display.cell(cell=world.cells[ambush_cell_id], color=cmap[i])
+        cmap = plt.cm.Reds([weight / max(cls.bias.values()) for weight in cls.bias.values()])
+        for i, ambush_cell_id in enumerate(cls.bias.keys()):
+            display.cell(cell=world.cells[ambush_cell_id], color=cmap[i])
+
+        plt.plot(prey_trajectory[:, 0], prey_trajectory[:,1])
 
     @classmethod
     def draw_ambush_zone(cls, radius = cell_size * 3):
@@ -325,21 +327,15 @@ AmbushManager.draw_ambush_zone()
 
 print("PRESS M TO SET INITIAL AMBUSH CELL")
 running = True
+while running:
 
-a = np.array([[0.252869, 0.530311],
-              [0.253054, 0.530279],
-             [0.252955, 0.53034 ]])
-hi(a)
-# AmbushManager.update_bias(a)
-# while running:
-#
-#     # IF PAUSE DONT EXECUTE REST OF LOOP ROBOT STOPS MOVING
-#     if not controller_kill_switch:
-#         controller.set_destination(predator.step.location)
-#         controller.pause()
-#         update_agent_positions()
-#         continue
-#     else:
-#         update_agent_positions()
-#
-#     sleep(0.1)
+    # IF PAUSE DONT EXECUTE REST OF LOOP ROBOT STOPS MOVING
+    if not controller_kill_switch:
+        controller.set_destination(predator.step.location)
+        controller.pause()
+        update_agent_positions()
+        continue
+    else:
+        update_agent_positions()
+
+    sleep(0.1)
