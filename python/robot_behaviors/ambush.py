@@ -27,9 +27,9 @@ current_experiment_name = ""
 
 # TIMER AND KILL SWITCH INIT
 controller_timer = Timer(5.0)
-surge_timer = Timer(0.5)        # TODO: check this may Not work
+# surge_timer = Timer(0.5)        # TODO: check this may Not work
 controller_kill_switch = 0
-
+SURGE_ROTATION = -2000
 
 # EXPERIMENT FUNCTIONS
 def get_experiment_folder(experiment_name):
@@ -66,12 +66,12 @@ def on_step(step: Step):
         predator.is_valid = Timer(1.0)
         predator.step = step
     else:
-        prey.is_valid = Timer(1.0)
+        prey.is_valid = Timer(1.0) # TODO: may need to tune this
         prey.step = step
 
         # Ambush predator only
         AmbushManager.prey_state = prey.step.location.dist(world.cells[AmbushManager.current_ambush_cell].location) <= ambush_region
-        surge_timer.reset()
+        # surge_timer.reset()
 
 
 def on_experiment_started(experiment):
@@ -87,6 +87,7 @@ def on_episode_started(parameters):
     global episode_in_progress, current_experiment_name
     current_experiment_name = parameters.experiment_name
     episode_in_progress = True
+
 
 def on_episode_finished(m):
     global episode_in_progress, current_predator_destination, episode_count, df
@@ -172,7 +173,7 @@ def on_keypress(event):
             destination_circle.set(center=(current_predator_destination.x, current_predator_destination.y), color=explore_color)
             controller_timer.reset()
             if ambush_circle == None:
-                ambush_circle = display.circle(current_predator_destination, 0.01, 'red')
+                ambush_circle = display.circle(current_predator_destination, 0.02, 'red')
             else:
                 ambush_circle.set(center=(current_predator_destination.x, current_predator_destination.y), color='red')
 
@@ -267,9 +268,6 @@ class AmbushManager:
             y = [world.cells[ambush_cell_id].location.y + radius * math.sin(angle * (math.pi / 180)) for angle in range(360)]
             plt.plot(x,y, color = "grey", alpha = 0.5)
 
-def hi(a):
-    AmbushManager.update_bias(a)
-
 
 # AGENT SETUP
 predator = AgentData("predator")
@@ -323,6 +321,31 @@ while running:
         update_agent_positions()
         continue
 
+    # IF MOUSE IN AMBUSH REGION SET DESTINATION TO CORRECT SURGE CELL
+    if AmbushManager.prey_state and prey.is_valid: #and AmbushManager.state == "AMBUSH_REACHED":
+        # TODO: might have to add like an ambush reached stipulation depends on how I want surge to look
+        # TODO: may need to add buffer or controller pause and resume
+        print("SURGE PREY IN AMBUSH REGION")
+        controller.pause()
+        if world.cells[AmbushManager.current_ambush_cell].location.y > prey.step.location.y:
+            surge_location = world.cells[surge_cell_dict[AmbushManager.current_ambush_cell][1]].location
+        else:
+            surge_location = world.cells[surge_cell_dict[AmbushManager.current_ambush_cell][0]].location
+        AmbushManager.ambush_state = "SURGE"
+        current_predator_destination = surge_location
+        controller.set_destination(current_predator_destination, SURGE_ROTATION)     # TODO: check that this is sent correctly
+        controller_timer.reset()
+        controller.resume()
+        destination_circle.set(center=(current_predator_destination.x, current_predator_destination.y), color=explore_color)
 
+    # ELSE SET DESTINATION TO AMBUSH CELL
+    elif (AmbushManager.state == "SURGE" or not prey.is_valid) and (AmbushManager.current_ambush_cell != None):
+        print("DRIVE BACK TO AMBUSH CELL")
+        controller.pause()
+        current_predator_destination = world.cells[AmbushManager.current_ambush_cell].location
+        current_predator_heading = surge_cell_dict[AmbushManager.current_ambush_cell][2]
+        AmbushManager.state = "AMBUSH"
+        destination_circle.set(center=(current_predator_destination.x, current_predator_destination.y), color=explore_color)
+        ambush_circle.set(center=(current_predator_destination.x, current_predator_destination.y), color='red')
 
     sleep(0.1)
