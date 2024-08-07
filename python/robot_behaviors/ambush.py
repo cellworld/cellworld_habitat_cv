@@ -163,7 +163,6 @@ def on_keypress(event):
         controller_kill_switch = action[2]    # change controller_kill_switch variable assignment
 
         if len(action) > 3 and action[3] and not episode_in_progress:
-            # controller_timer = Timer(5.0)
             AmbushManager.current_ambush_cell = AmbushManager.select_random_cell(list(surge_cell_dict.keys()))
             print(f"Ambush cell selected: {AmbushManager.current_ambush_cell}")
             current_predator_destination = world.cells[AmbushManager.current_ambush_cell].location
@@ -171,11 +170,11 @@ def on_keypress(event):
             AmbushManager.state = "AMBUSH"
             controller.set_destination(current_predator_destination, current_predator_heading)
             destination_circle.set(center=(current_predator_destination.x, current_predator_destination.y), color=explore_color)
+            controller_timer.reset()
             if ambush_circle == None:
                 ambush_circle = display.circle(current_predator_destination, 0.01, 'red')
             else:
                 ambush_circle.set(center=(current_predator_destination.x, current_predator_destination.y), color='red')
-            controller_timer.reset()
 
 
 def on_click(event):
@@ -194,20 +193,8 @@ def on_click(event):
             return
         current_predator_destination = destination_cell.location
         controller.set_destination(destination_cell.location)
-        destination_circle.set(center = (current_predator_destination.x, current_predator_destination.y), color = explore_color)
-    else:
-        print("starting experiment")
-        exp = experiment_service.start_experiment(                  # call start experiment
-            prefix="PREFIX",
-            suffix="SUFFIX",
-            occlusions=occlusions,
-            world_implementation="canonical",
-            world_configuration="hexagonal",
-            subject_name="SUBJECT",
-            duration=10)
-        print("Experiment Name: ", exp.experiment_name)
-        r = experiment_service.start_episode(exp.experiment_name)   # call start episode
-        print(r)
+        destination_circle.set(center=(current_predator_destination.x, current_predator_destination.y), color=explore_color)
+
 
 # AMBUSH MANAGER
 class AmbushManager:
@@ -335,7 +322,7 @@ while running:
         controller.pause()
         update_agent_positions()
         continue
-    else:
-        update_agent_positions()
+
+
 
     sleep(0.1)
