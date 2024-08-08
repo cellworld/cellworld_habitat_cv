@@ -34,4 +34,9 @@ def log_data(pickle_file_path, episode, entry_type, data, df):
         pickle.dump(df, f)
     return df
 
+class AgentData:
+    def __init__(self, agent_name: str):
+        self.is_valid = None  # timers for predator and prey updates
+        self.step = Step()
+        self.step.agent_name = agent_name
 

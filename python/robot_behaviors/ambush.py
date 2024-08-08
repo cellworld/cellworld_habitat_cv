@@ -22,6 +22,7 @@ episode_in_progress = False
 controller_timer = None
 current_predator_destination = None
 destination_circle = None
+ambush_circle = None
 current_experiment_name = ""
 
 
@@ -96,8 +97,8 @@ def on_episode_finished(m):
     episode_in_progress = False
 
     # write to pickle file
-    pickle_file_path = f'/research/data/RobotStrategyExtraData/{current_experiment_name}.pkl'
-    df = log_data(pickle_file_path, episode_count, "ambush_cell_id", AmbushManager.current_ambush_cell, df)
+    pickle_file_path = f'/research/data/4ROBOT/{current_experiment_name}/{current_experiment_name}.pkl' # uploads each episode to make sure data gets recorded if experiment fails
+    df = log_data(pickle_file_path, episode_count, "ambush_cell_id", AmbushManager.current_ambush_cell, df)  # TODO: check this
     episode_count += 1
 
     # update ambush cell bias - loop through previous trajectory
@@ -126,11 +127,11 @@ def on_episode_finished(m):
     ambush_circle.set(center=(current_predator_destination.x, current_predator_destination.y), color='red')
 
 
-class AgentData:
-    def __init__(self, agent_name: str):
-        self.is_valid = None  # timers for predator and prey updates
-        self.step = Step()
-        self.step.agent_name = agent_name
+# class AgentData:
+#     def __init__(self, agent_name: str):
+#         self.is_valid = None  # timers for predator and prey updates
+#         self.step = Step()
+#         self.step.agent_name = agent_name
 
 # PLOT FUNCTIONS
 def update_agent_positions():
@@ -164,7 +165,7 @@ def on_keypress(event):
         controller_kill_switch = action[2]    # change controller_kill_switch variable assignment
 
         if len(action) > 3 and action[3] and not episode_in_progress:
-            AmbushManager.current_ambush_cell = AmbushManager.select_random_cell(list(surge_cell_dict.keys()))
+            AmbushManager.current_ambush_cell = 32 #AmbushManager.select_random_cell(list(surge_cell_dict.keys()))
             print(f"Ambush cell selected: {AmbushManager.current_ambush_cell}")
             current_predator_destination = world.cells[AmbushManager.current_ambush_cell].location
             current_predator_heading = surge_cell_dict[AmbushManager.current_ambush_cell][2]
@@ -172,10 +173,7 @@ def on_keypress(event):
             controller.set_destination(current_predator_destination, current_predator_heading)
             destination_circle.set(center=(current_predator_destination.x, current_predator_destination.y), color=explore_color)
             controller_timer.reset()
-            if ambush_circle == None:
-                ambush_circle = display.circle(current_predator_destination, 0.02, 'red')
-            else:
-                ambush_circle.set(center=(current_predator_destination.x, current_predator_destination.y), color='red')
+            ambush_circle.set(center=(current_predator_destination.x, current_predator_destination.y), color='red')
 
 
 def on_click(event):
@@ -262,7 +260,7 @@ class AmbushManager:
         plt.plot(prey_trajectory[:, 0], prey_trajectory[:,1])
 
     @classmethod
-    def draw_ambush_zone(cls, radius = cell_size * 3):
+    def draw_ambush_zone(cls, radius=cell_size * 3):
         for ambush_cell_id in surge_cell_dict.keys():
             x = [world.cells[ambush_cell_id].location.x + radius * math.cos(angle * (math.pi / 180)) for angle in range(360)]
             y = [world.cells[ambush_cell_id].location.y + radius * math.sin(angle * (math.pi / 180)) for angle in range(360)]
@@ -306,7 +304,7 @@ cid1 = display.fig.canvas.mpl_connect('button_press_event', on_click)
 cid_keypress = display.fig.canvas.mpl_connect('key_press_event', on_keypress)
 
 # AMBUSH SETUP
-ambush_circle = None
+ambush_circle = display.circle(current_predator_destination, 0.02, 'red')
 # AmbushManager.current_ambush_cell = 32 # TODO: delete this just a test
 AmbushManager.draw_ambush_zone()
 
@@ -327,7 +325,7 @@ while running:
     if AmbushManager.prey_state and prey.is_valid:
         # TODO: might have to add like an ambush reached stipulation depends on how I want surge to look (AmbushManager.state == "AMBUSH_REACHED")
         print("SURGE - PREY IN AMBUSH REGION")
-        AmbushManager.ambush_state = "SURGE"
+        AmbushManager.state = "SURGE"
         controller.pause()
         if world.cells[AmbushManager.current_ambush_cell].location.y > prey.step.location.y:
             surge_location = world.cells[surge_cell_dict[AmbushManager.current_ambush_cell][1]].location
@@ -337,34 +335,38 @@ while running:
 
     # ELSE SET DESTINATION BACK TO SELECTED AMBUSH CELL
     else:
-        print("DRIVE BACK TO AMBUSH CELL")
+        if AmbushManager.state == "SURGE":
+            print("DRIVE BACK TO AMBUSH CELL")
         AmbushManager.state = "AMBUSH"
         controller.pause()
         current_predator_destination = world.cells[AmbushManager.current_ambush_cell].location
 
     ############## SEND DESTINATION ######################
     # CHECK IF CURRENT DESTINATION REACHED PAUSE ROBOT -> BUFFER
-    if current_predator_destination.dist(predator.step.location) < (cell_size * 1): # TODO: tune this
-        print("DESTINATION REACHED")
-        if AmbushManager.state == "AMBUSH":
-            AmbushManager.state = "AMBUSH_REACHED"
+    # changed so that only buffer if surge cell otherwise
+    if current_predator_destination.dist(predator.step.location) < (cell_size * 1) and AmbushManager.state == "SURGE":
+        print("SURGE DESTINATION REACHED")
+        # if AmbushManager.state == "AMBUSH":
+        #     AmbushManager.state = "AMBUSH_REACHED"
         controller.pause()
     # IF NOT SEND ROBOT TO DESTINATION
     else:
         print(f"CURRENT BEHAVIOR STATE: {AmbushManager.state}")
-        controller.pause()
+        # controller.pause()
         if AmbushManager.state == "AMBUSH":
             current_predator_heading = surge_cell_dict[AmbushManager.current_ambush_cell][2]
             controller.set_destination(current_predator_destination, surge_cell_dict[AmbushManager.current_ambush_cell][2])     # set destination
         else:
             controller.set_destination(current_predator_destination, SURGE_ROTATION) # TODO: check that this is sent correctly
 
-        destination_circle.set(center=(current_predator_destination.x, current_predator_destination.y), color=explore_color)
+        if current_predator_destination != previous_predator_destination:
+            destination_circle.set(center=(current_predator_destination.x, current_predator_destination.y), color=explore_color)
         controller_timer.reset()
         controller.resume()
 
     # PLOT AGENT STATES
     update_agent_positions()
+    previous_predator_destination = current_predator_destination
     sleep(0.1)
 
 controller.unsubscribe()
