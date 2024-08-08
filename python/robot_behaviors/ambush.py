@@ -21,6 +21,7 @@ experiment_log_folder = "/research/data"
 episode_in_progress = False
 controller_timer = None
 current_predator_destination = None
+previous_predator_destination = Location(0,0)
 destination_circle = None
 ambush_circle = None
 current_experiment_name = ""
@@ -366,7 +367,7 @@ while running:
 
     # PLOT AGENT STATES
     update_agent_positions()
-    previous_predator_destination = current_predator_destination
+    previous_predator_destination = current_predator_destination # TODO: hfdjksfhdjks
     sleep(0.1)
 
 controller.unsubscribe()
