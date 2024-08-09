@@ -1,3 +1,4 @@
+import cellworld
 from cellworld import *
 from cellworld_controller_service import ControllerClient
 from cellworld_experiment_service import ExperimentClient
@@ -34,9 +35,22 @@ def log_data(pickle_file_path, episode, entry_type, data, df):
         pickle.dump(df, f)
     return df
 
+
 class AgentData:
     def __init__(self, agent_name: str):
         self.is_valid = None  # timers for predator and prey updates
         self.step = Step()
         self.step.agent_name = agent_name
+
+
+def select_random_cell(cell_group_ids: int, previous_destination: cellworld.Location, min_distance : int, world: cellworld.World) -> cellworld.Location:
+    """ Selects a random cell from a provided group of cells that is a specified distance from the last selected cell
+    """
+    eligible_cells = [cell_id for cell_id in cell_group_ids if world.cells[cell_id].location.dist(previous_destination) >= (min_distance * world.implementation.cell_transformation.size)]
+
+    if not eligible_cells:
+        print("No eligible cells found that meet the distance requirement.")
+        world.cells[random.choice(cell_group_ids)].location
+
+    return world.cells[random.choice(eligible_cells)].location
 

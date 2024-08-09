@@ -319,6 +319,7 @@ while running:
         controller.set_destination(predator.step.location)
         controller.pause()
         update_agent_positions()
+        previous_predator_destination = current_predator_destination
         continue
 
     ########## DETERMINE DESTINATION #####################
@@ -349,21 +350,28 @@ while running:
         print("SURGE DESTINATION REACHED")
         # if AmbushManager.state == "AMBUSH":
         #     AmbushManager.state = "AMBUSH_REACHED"
+        current_predator_destination = predator.step.location # TODO: added this without checking it
         controller.pause()
-    # IF NOT SEND ROBOT TO DESTINATION
-    else:
+    # IF NOT SEND ROBOT TO DESTINATION #
+    # todo: changed this logic without checking
+    elif current_predator_destination != previous_predator_destination:
         print(f"CURRENT BEHAVIOR STATE: {AmbushManager.state}")
         # controller.pause()
         if AmbushManager.state == "AMBUSH":
             current_predator_heading = surge_cell_dict[AmbushManager.current_ambush_cell][2]
             controller.set_destination(current_predator_destination, surge_cell_dict[AmbushManager.current_ambush_cell][2])     # set destination
+
         else:
             controller.set_destination(current_predator_destination, SURGE_ROTATION) # TODO: check that this is sent correctly
 
-        if current_predator_destination != previous_predator_destination:
-            destination_circle.set(center=(current_predator_destination.x, current_predator_destination.y), color=explore_color)
+        # if current_predator_destination != previous_predator_destination:
+        destination_circle.set(center=(current_predator_destination.x, current_predator_destination.y), color=explore_color)
         controller_timer.reset()
         controller.resume()
+
+    elif not controller_timer:
+        controller.set_destination(current_predator_destination)  # resend destination
+        controller_timer.reset()
 
     # PLOT AGENT STATES
     update_agent_positions()
