@@ -109,6 +109,10 @@ def load_world():
     world.set_occlusions(occlusion)
     display = Display(world, fig_size=(9.0*.75, 8.0*.75), animated=True)
 
+    for spawn_cell in spawn_locations:
+        display.cell(cell=spawn_cell, color='grey', alpha = 0.5)
+
+
 
 def random_location():
     """
