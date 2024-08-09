@@ -9,7 +9,7 @@ occlusions = "21_05"
 world = World.get_from_parameters_names("hexagonal", "canonical", occlusions)
 cell_size = world.implementation.cell_transformation.size
 display = Display(world, fig_size=(9.0*.75, 8.0*.75), animated=True)
-patrol, chase_visible_in_region, chase_out_region_or_hidden = "cyan", "red", "magenta"
+patrol, chase_visible_in_region, chase_out_region_or_hidden = "cyan", "red", "firebrick"
 destination_circle_color = patrol
 
 # UTIL SETUP
@@ -23,8 +23,37 @@ controller_kill_switch = 0
 previous_predator_destination = Location()
 current_predator_destination = Location()
 episode_in_progress = False
+experiment_log_folder = "/research/data"
+current_experiment_name = ""
 
 # EXPERIMENT FUNCTIONS
+def get_experiment_folder(experiment_name):
+    return experiment_log_folder + "/" + experiment_name.split('_')[0] + "/" + experiment_name
+
+
+def get_episode_folder(experiment_name, episode_number):
+    return get_experiment_folder(experiment_name) + f"/episode_{episode_number:03}"
+
+
+def get_episode_file(experiment_name, episode_number):
+    return get_episode_folder(experiment_name, episode_number) + f"/{experiment_name}_episode_{episode_number:03}.json"
+
+
+def get_experiment_file(experiment_name, current_experiment_name):
+    return get_experiment_folder(experiment_name) + current_experiment_name + "_experiment.json"
+
+
+def on_capture(frame:int):
+    print("PREY CAPTURED")
+
+
+def on_prey_entered_arena():
+    print("PREY ENTERED ARENA")
+    global episode_in_progress, controller_timer
+    episode_in_progress = True
+    controller_timer.reset()
+
+
 def on_step(step: Step):
     if step.agent_name == "predator":
         predator.is_valid = Timer(1.0)
@@ -33,6 +62,38 @@ def on_step(step: Step):
         prey.is_valid = Timer(2.0)  # TODO: may need to tune this
         prey.step = step
         ep_manager.update_state(prey.step)
+
+
+def on_experiment_started(experiment):
+    global current_predator_destination, destination_circle
+    print("Experiment started:", experiment)
+    experiments[experiment.experiment_name] = experiment.copy()
+
+    # current_predator_destination = predator.step.location
+    # destination_circle.set(center=(current_predator_destination.x, current_predator_destination.y), color=explore_color)
+
+
+def on_episode_started(parameters):
+    global episode_in_progress, current_experiment_name
+    current_experiment_name = parameters.experiment_name
+
+
+def on_episode_finished(m):
+    global episode_in_progress, current_predator_destination, episode_count, df
+    print("EPISODE FINISHED")
+    controller.pause()
+    episode_in_progress = False
+
+    # set destination to patrol path waypoint
+    ep_manager.patrol_waypoint = random.choice(list(patrol_path.values()))       # select random waypoint in patrol path
+    print(f"NEW waypoint cell selected: {ep_manager.patrol_waypoint}")
+    current_predator_destination = world.cells[ep_manager.patrol_waypoint].location
+    destination_circle_color = patrol
+    ep_manager.mode = 'not active'    # this is chase because what to call generate pattern function during control loop
+    ep_manager.previous_side = next((k for k, v in patrol_path.items() if v == ep_manager.patrol_waypoint), None)
+    controller.set_destination(current_predator_destination)
+    destination_circle.set(center=(current_predator_destination.x, current_predator_destination.y), color=destination_circle_color)
+    controller_timer.reset()
 
 
 # PLOT FUNCTIONS
@@ -56,22 +117,22 @@ def draw_strategy_features():
     for id in patrol_path.values():
         xn = world.cells[id].location.x
         yn = world.cells[id].location.y
-        # plt.scatter(xn, yn, color ='purple',  edgecolor = 'black',  s = 150, marker = '*', alpha = 0.75)
+        plt.scatter(xn, yn, color ='purple',  edgecolor = 'black',  s = 150, marker = '*', alpha = 0.75, zorder = 1)
     # N/S cells and chase regions
     for id in ep_manager.north_side:
         x = world.cells[id].location.x
         y = world.cells[id].location.y
-        # if id in ep_manager.north_chase_region:
-        #     plt.scatter(x, y, color='blue', alpha=0.5, s=300, marker='h')
-        # else:
-        #     plt.scatter(x, y, color='blue', alpha=0.25, s=300, marker='h')
+        if id in ep_manager.north_chase_region:
+            plt.scatter(x, y, color='blue', alpha=0.5, s=300, marker='h', zorder = 0)
+        else:
+            plt.scatter(x, y, color='blue', alpha=0.25, s=300, marker='h', zorder = 0)
     for id in ep_manager.south_side:
         x = world.cells[id].location.x
         y = world.cells[id].location.y
-        # if id in ep_manager.south_chase_region:
-        #     plt.scatter(x, y, color ='green', alpha=0.5, s=300, marker='h')
-        # else:
-        #     plt.scatter(x, y, color='green', alpha=0.25, s=300, marker='h')
+        if id in ep_manager.south_chase_region:
+            plt.scatter(x, y, color ='green', alpha=0.5, s=300, marker='h', zorder = 0)
+        else:
+            plt.scatter(x, y, color='green', alpha=0.25, s=300, marker='h', zorder = 0)
 
 
 def on_keypress(event):
@@ -79,31 +140,48 @@ def on_keypress(event):
     Sets up keyboard intervention based on key presses.
     """
     global running, current_predator_destination, controller_timer, controller_kill_switch, destination_circle_color
-    # key_actions = {
-    #     "p": ("pause", controller.pause, 0),
-    #     "r": ("resume", controller.resume, 1),
-    #     "m": ("auto", controller.resume, 1, True)
-    # }
-    key_actions = {     # todo: delete once contoller setup
-        "p": ("pause", 0),
-        "r": ("resume", 1),
-        "m": ("move", 1, 0, True)
+    key_actions = {
+        "p": ("pause", controller.pause, 0),
+        "r": ("resume", controller.resume, 1),
+        "m": ("auto", controller.resume, 1, True)
     }
     action = key_actions.get(event.key)
     if action:
         print(action[0])                    # print string associated with action
-        # action[1]()                         # change controller instance state
-        # controller_kill_switch = action[2]    # change controller_kill_switch variable assignment
+        action[1]()                         # change controller instance state
+        controller_kill_switch = action[2]    # change controller_kill_switch variable assignment
 
         # can select new patrol waypoint when episode is not in progress
         if len(action) > 3 and action[3] and not episode_in_progress:
             ep_manager.patrol_waypoint = random.choice(list(patrol_path.values()))       # select random waypoint in patrol path
-            print(f"Waypoint cell selected: {ep_manager.patrol_waypoint}")
+            print(f"NEW waypoint cell selected: {ep_manager.patrol_waypoint}")
             current_predator_destination = world.cells[ep_manager.patrol_waypoint].location
             destination_circle_color = patrol
-            # controller.set_destination(current_predator_destination)
+            ep_manager.mode = 'not active'    # this is chase because what to call generate pattern function during control loop
+            ep_manager.previous_side = next((k for k, v in patrol_path.items() if v == ep_manager.patrol_waypoint), None)
+            controller.set_destination(current_predator_destination)
             destination_circle.set(center=(current_predator_destination.x, current_predator_destination.y), color=destination_circle_color)
-            # controller_timer.reset()
+            controller_timer.reset()
+
+
+def on_click(event):
+    """
+    Right-click to start experiment
+    """
+    global current_predator_destination
+
+    if event.button == 1:
+        controller.resume()
+        location = Location(event.xdata, event.ydata)
+        cell_id = world.cells.find(location)
+        destination_cell = world.cells[cell_id]
+        if destination_cell.occluded:
+            print("can't navigate to an occluded cell")
+            return
+        current_predator_destination = destination_cell.location
+        controller.set_destination(destination_cell.location)
+        destination_circle.set(center=(current_predator_destination.x, current_predator_destination.y), color='grey')
+
 
 
 # EXITPATROL MANAGER
@@ -116,16 +194,14 @@ class ExitPatrolManager:
         self.chase_region_dict = {'north': self.north_chase_region, 'south': self.south_chase_region, 'none': []}
         self.side_dict = {'north': self.north_side, 'south': self.south_side, 'none': []}
         self.patrol_waypoint = None # cell id
-        self.mode = 'patrol' # patrol or chase
+        self.mode = 'chase' # patrol or chase
 
-        # prey state machine -
-        # self.prey_step = world.cells[0]
+        # prey state machine
         self.current_region = 'none'    # 'north', 'south', 'none'
         self.current_side = 'none'      # 'north', 'south', 'none'
         self.previous_side = 'none'
 
     def update_state(self, prey_step):
-        # self.prey_step = prey_step
         new_side = self._determine_side(prey_step)
         if new_side != "none":
             self.previous_side = new_side
@@ -181,9 +257,33 @@ class ExitPatrolManager:
 predator = AgentData("predator")
 prey = AgentData("prey")
 current_predator_destination = predator.step.location
-destination_circle = display.circle(predator.step.location, 0.01, patrol)
+destination_circle = display.circle(predator.step.location, 0.01, patrol, zorder = 300)
 display.set_agent_marker("predator", Agent_markers.arrow())
 display.set_agent_marker("prey", Agent_markers.arrow())
+
+# CONNECT TO EXPERIMENT SERVER
+experiment_service = ExperimentClient()
+experiment_service.on_experiment_started = on_experiment_started
+experiment_service.on_episode_started = on_episode_started
+experiment_service.on_prey_entered_arena = on_prey_entered_arena
+experiment_service.on_episode_finished = on_episode_finished
+experiment_service.on_capture = on_capture
+if not experiment_service.connect("127.0.0.1"):
+    print("Failed to connect to experiment service")
+    exit(1)
+experiment_service.set_request_time_out(5000)
+experiment_service.subscribe()
+experiments = {}
+
+# CONNECT TO CONTROLLER
+controller = ControllerClient()
+if not controller.connect("127.0.0.1", 4590):
+    print("failed to connect to the controller")
+    exit(1)
+controller.set_request_time_out(10000)
+controller.subscribe()
+controller.on_step = on_step
+controller.set_behavior(0)
 
 # EXIT PATROL SETUP
 patrol_path = {'north': 294, 'middle': 326, 'south': 289}
@@ -191,69 +291,81 @@ ep_manager = ExitPatrolManager(world)
 draw_strategy_features()
 
 # KEYPRESS SETUP
-# cid1 = display.fig.canvas.mpl_connect('button_press_event', on_click)
+cid1 = display.fig.canvas.mpl_connect('button_press_event', on_click)
 cid_keypress = display.fig.canvas.mpl_connect('key_press_event', on_keypress)
-
-current_prey_step = world.cells[250] # test
-# prey.step = current_prey_step
-ep_manager.update_state(current_prey_step)
 
 print("PRESS M TO SET PATROL WAYPOINT")
 running = True
-i = 0
 while running:
 
     # IF PAUSE DONT EXECUTE REST OF LOOP ROBOT STOPS MOVING
     if not controller_kill_switch:
-        # print("KILL SWITCH OR AMBUSH CELL NOT SET")
-        # controller.set_destination(predator.step.location)
-        # controller.pause()
-
+        print("KILL SWITCH OR PATROL CELL NOT SET")
+        controller.set_destination(predator.step.location)
+        controller.pause()
         update_agent_positions()
         previous_predator_destination = current_predator_destination
-
-        # test
-        if i == 0:
-            print("KILL SWITCH OR AMBUSH CELL NOT SET")
-            previous_predator_destination = world.cells[294].location
-            a = select_random_cell(ep_manager.chase_region_dict[ep_manager.current_region], previous_predator_destination, 3, world)
-            print(a)
-            plt.scatter(a.x, a.y)
-            i += 1
         continue
-
     ########## DETERMINE DESTINATION ##########
     # CHASE
-    if prey.is_valid and ep_manager.current_side != "none":
+    if prey.is_valid and ep_manager.current_side != "none" and episode_in_progress:
         # direct pursuit
         if ep_manager.current_region != "none":
+            ep_manager.mode = "direct_chase"
             current_predator_destination = prey.step.location
             destination_circle_color = chase_visible_in_region
 
         # random movement in region
         else:
-            current_predator_destination = select_random_cell(ep_manager.chase_region_dict[ep_manager.current_side], previous_predator_destination, 3, world)
-            destination_circle_color = chase_out_region_or_hidden
+            if ep_manager.mode != "random_chase":
+                ep_manager.mode = "random_chase"
+                current_predator_destination = select_random_cell(ep_manager.chase_region_dict[ep_manager.current_side], previous_predator_destination, 3, world)
+                destination_circle_color = chase_out_region_or_hidden
     # PATROL
-    else:
-        # follow pattern based previous chase region
+    elif episode_in_progress:
+        # next patrol cell in pattern
+        if ep_manager.mode == "patrol_reached":
+            print("PATROL REACHED")
+            ep_manager.mode = "patrol"
+            waypoint_cell_key = next(pattern_iterator)
+            print(f"Continue Next Waypoint: {waypoint_cell_key}")
+            current_predator_destination = world.cells[patrol_path[waypoint_cell_key]].location
+        # generate pattern from previous chase region
+        elif ep_manager.mode != "patrol":
+            print("PATROL MODE")
+            ep_manager.mode = "patrol"
+            pattern_iterator = generate_pattern(ep_manager.previous_side)
+            waypoint_cell_key = next(pattern_iterator)
+            print(f"Patrol Pattern Start: {ep_manager.previous_side}")
+            print(f"Next Waypoint: {waypoint_cell_key}")
+            current_predator_destination = world.cells[patrol_path[waypoint_cell_key]].location
 
 
-
-
-    if current_predator_destination != previous_predator_destination:
-        destination_circle.set(center=(current_predator_destination.x, current_predator_destination.y), color=destination_circle_color )
 
     ########## SEND DESTINATION      ##########
+    if current_predator_destination != previous_predator_destination:
+        destination_circle.set(center=(current_predator_destination.x, current_predator_destination.y), color= destination_circle_color)
+        controller.set_destination(current_predator_destination)
+        controller_timer.reset()
+
+    ########## CHECK DESTINATION      ##########
     if current_predator_destination.dist(predator.step.location) < (cell_size * 1):
         print("Destination reached")
-        # controller.pause()
-        current_predator_destination = predator.step.location  # assign destination to current predator location (artificially reach goal when "close enough")
+        if ep_manager.mode == "random_chase" and episode_in_progress:
+            ep_manager.mode = "random_chase_reached"
+        elif ep_manager.mode == "patrol" and episode_in_progress:
+            ep_manager.mode = "patrol_reached"
+
+        controller.pause()
+        current_predator_destination = predator.step.location
+        controller.set_destination(current_predator_destination)
+        controller_timer.reset()
+        controller.resume()
 
     elif not controller_timer:
         destination_circle.set(center=(current_predator_destination.x, current_predator_destination.y), color= destination_circle_color)
-        # controller.set_destination(current_predator_destination)  # resend destination
-        # controller_timer.reset()
+        controller.set_destination(current_predator_destination)  # resend destination
+        controller_timer.reset()
 
 
     # PLOT AGENT STATES
@@ -261,5 +373,5 @@ while running:
     previous_predator_destination = current_predator_destination
     sleep(0.1)
 
-# controller.unsubscribe()
-# controller.stop()
+controller.unsubscribe()
+controller.stop()

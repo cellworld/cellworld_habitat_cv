@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import math
 import pickle
+import itertools
 
 df = pd.DataFrame(columns=["Episode", "Type", "Data"])
 def fix_coordinate_system(ang):
@@ -54,3 +55,14 @@ def select_random_cell(cell_group_ids: int, previous_destination: cellworld.Loca
 
     return world.cells[random.choice(eligible_cells)].location
 
+def generate_pattern(start):
+    directions = ['north', 'middle', 'south']
+    pattern = []
+    if start == 'south':
+        pattern = ['middle', 'north', 'middle', 'south']
+    elif start == 'middle':
+        pattern = ['north', 'middle', 'south', 'middle']
+    else:
+        pattern = ['middle', 'south', 'middle', 'north'] # default north if not specified
+    # Use cycle to repeat the pattern indefinitely
+    return itertools.cycle(pattern)
