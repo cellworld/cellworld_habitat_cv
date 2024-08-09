@@ -61,7 +61,7 @@ def on_step(step: Step):
     else:
         prey.is_valid = Timer(2.0)  # TODO: may need to tune this
         prey.step = step
-        ep_manager.update_state(prey.step)
+
 
 
 def on_experiment_started(experiment):
@@ -198,16 +198,19 @@ class ExitPatrolManager:
         self.mode = 'chase' # patrol or chase
 
         # prey state machine
+        self.prey_id = -1
         self.current_region = 'none'    # 'north', 'south', 'none'
         self.current_side = 'none'      # 'north', 'south', 'none'
         self.previous_side = 'none'
 
-    def update_state(self, prey_step):
-        new_side = self._determine_side(prey_step)
+    def update_state(self, prey_id):
+        self.prey_id = prey_id
+        new_side = self._determine_side()
         if new_side != "none":
             self.previous_side = new_side
         self.current_side = new_side
-        self.current_region = self._determine_region(prey_step)
+        self.current_region = self._determine_region()
+        # print("UPDATE_STATE", prey_id in self.north_side, self.prey_id)
 
     def get_chase_regions(self):
         north_chase_region = []
@@ -218,8 +221,8 @@ class ExitPatrolManager:
         xb = self.world.cells[227].location.x
 
         for cell in self.world.cells.free_cells():
-            dist = cell.location.dist(last_cell_location)
-            if cell.location.x > xb and dist <= self.cell_size * 8:
+            distance = cell.location.dist(last_cell_location)
+            if cell.location.x > xb and distance <= self.cell_size * 8:
                 if cell.location.y <= lb:
                     south_chase_region.append(cell.id)
                 elif cell.location.y >= ub:
@@ -239,17 +242,17 @@ class ExitPatrolManager:
                     south_cell_ids.append(cell.id)
         return north_cell_ids, south_cell_ids
 
-    def _determine_region(self, prey_step):
-        if prey_step.id in self.north_chase_region:
+    def _determine_region(self):
+        if self.prey_id in self.north_chase_region:
             return 'north'
-        elif prey_step.id in self.south_chase_region:
+        elif self.prey_id in self.south_chase_region:
             return 'south'
         return 'none'
 
-    def _determine_side(self, prey_step):
-        if prey_step.id in self.north_side:
+    def _determine_side(self):
+        if self.prey_id in self.north_side:
             return 'north'
-        elif prey_step.id in self.south_side:
+        elif self.prey_id in self.south_side:
             return 'south'
         return 'none'
 
@@ -287,7 +290,7 @@ controller.on_step = on_step
 controller.set_behavior(0)
 
 # EXIT PATROL SETUP
-patrol_path = {'north': 294, 'middle': 326, 'south': 289}
+patrol_path = {'north': 274, 'middle': 326, 'south': 268}
 ep_manager = ExitPatrolManager(world)
 draw_strategy_features()
 
@@ -298,10 +301,14 @@ cid_keypress = display.fig.canvas.mpl_connect('key_press_event', on_keypress)
 print("PRESS M TO SET PATROL WAYPOINT")
 running = True
 while running:
+    # print(world.cells.find(prey.step.location))
+    if episode_in_progress:
+        ep_manager.update_state(world.cells.find(prey.step.location))
+
 
     # IF PAUSE DONT EXECUTE REST OF LOOP ROBOT STOPS MOVING
     if not controller_kill_switch:
-        print("KILL SWITCH OR PATROL CELL NOT SET")
+        # print("KILL SWITCH OR PATROL CELL NOT SET")
         controller.set_destination(predator.step.location)
         controller.pause()
         update_agent_positions()
@@ -309,6 +316,7 @@ while running:
         continue
     ########## DETERMINE DESTINATION ##########
     # CHASE
+    # print(prey.is_valid, ep_manager.current_side, episode_in_progress)
     if prey.is_valid and ep_manager.current_side != "none" and episode_in_progress:
         # direct pursuit
         if ep_manager.current_region != "none":
@@ -340,7 +348,7 @@ while running:
             print(f"Patrol Pattern Start: {ep_manager.previous_side}")
             print(f"Next Waypoint: {waypoint_cell_key}")
             current_predator_destination = world.cells[patrol_path[waypoint_cell_key]].location
-
+        destination_circle_color = patrol
 
 
     ########## SEND DESTINATION      ##########
@@ -348,10 +356,11 @@ while running:
         destination_circle.set(center=(current_predator_destination.x, current_predator_destination.y), color= destination_circle_color)
         controller.set_destination(current_predator_destination)
         controller_timer.reset()
+        controller.resume()
 
     ########## CHECK DESTINATION      ##########
     if current_predator_destination.dist(predator.step.location) < (cell_size * 1):
-        print("Destination reached")
+        # print("Destination reached")
         if ep_manager.mode == "random_chase" and episode_in_progress:
             ep_manager.mode = "random_chase_reached"
         elif ep_manager.mode == "patrol" and episode_in_progress:
@@ -361,7 +370,8 @@ while running:
         current_predator_destination = predator.step.location
         controller.set_destination(current_predator_destination)
         controller_timer.reset()
-        controller.resume()
+        if episode_in_progress: # todo: this is key to stopping robot pause it when want stop
+            controller.resume()
 
     elif not controller_timer:
         destination_circle.set(center=(current_predator_destination.x, current_predator_destination.y), color= destination_circle_color)
