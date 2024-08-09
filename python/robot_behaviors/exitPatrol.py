@@ -94,7 +94,8 @@ def on_episode_finished(m):
     controller.set_destination(current_predator_destination)
     destination_circle.set(center=(current_predator_destination.x, current_predator_destination.y), color=destination_circle_color)
     controller_timer.reset()
-
+    controller.resume()
+    # todo: make more functions for reptitive code like set destination
 
 # PLOT FUNCTIONS
 def update_agent_positions():
