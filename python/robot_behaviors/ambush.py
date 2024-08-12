@@ -58,7 +58,7 @@ def on_capture(frame:int):
 def on_prey_entered_arena():
     print("PREY ENTERED ARENA")
     global episode_in_progress, controller_timer
-    # episode_in_progress = True
+    episode_in_progress = True
     controller_timer.reset()
     # controller_timer = Timer(5.0)
 
@@ -81,6 +81,7 @@ def on_experiment_started(experiment):
     print("Experiment started:", experiment)
     experiments[experiment.experiment_name] = experiment.copy()
 
+    controller.pause()
     current_predator_destination = predator.step.location
     destination_circle.set(center=(current_predator_destination.x, current_predator_destination.y), color=explore_color)
 
@@ -88,7 +89,7 @@ def on_experiment_started(experiment):
 def on_episode_started(parameters):
     global episode_in_progress, current_experiment_name
     current_experiment_name = parameters.experiment_name
-    episode_in_progress = True
+    # episode_in_progress = True
 
 
 def on_episode_finished(m):
@@ -97,7 +98,7 @@ def on_episode_finished(m):
     controller.pause()              # TODO: do I need this
     episode_in_progress = False
 
-    # write to pickle file
+    # write to pickle file - ambush_cell each ep, ambush cell select bias, dict start surge-end surge
     pickle_file_path = f'/research/data/4ROBOT/{current_experiment_name}/{current_experiment_name}.pkl' # uploads each episode to make sure data gets recorded if experiment fails
     df = log_data(pickle_file_path, episode_count, "ambush_cell_id", AmbushManager.current_ambush_cell, df)  # TODO: check this
     episode_count += 1
@@ -157,7 +158,7 @@ def on_keypress(event):
     key_actions = {
         "p": ("pause", controller.pause, 0),
         "r": ("resume", controller.resume, 1),
-        "m": ("auto", controller.resume, 1, True)
+        "m": ("move", controller.resume, 1, True)
     }
     action = key_actions.get(event.key)
     if action:
@@ -166,7 +167,8 @@ def on_keypress(event):
         controller_kill_switch = action[2]    # change controller_kill_switch variable assignment
 
         if len(action) > 3 and action[3] and not episode_in_progress:
-            AmbushManager.current_ambush_cell = 32 #AmbushManager.select_random_cell(list(surge_cell_dict.keys()))
+            controller.pause()
+            AmbushManager.current_ambush_cell = 32 #AmbushManager.select_random_cell(list(surge_cell_dict.keys()))  # TODO: change this back to random
             print(f"Ambush cell selected: {AmbushManager.current_ambush_cell}")
             current_predator_destination = world.cells[AmbushManager.current_ambush_cell].location
             current_predator_heading = surge_cell_dict[AmbushManager.current_ambush_cell][2]
@@ -174,6 +176,8 @@ def on_keypress(event):
             controller.set_destination(current_predator_destination, current_predator_heading)
             destination_circle.set(center=(current_predator_destination.x, current_predator_destination.y), color=explore_color)
             controller_timer.reset()
+            controller.resume()
+
             ambush_circle.set(center=(current_predator_destination.x, current_predator_destination.y), color='red')
 
 
@@ -328,7 +332,6 @@ while running:
         # TODO: might have to add like an ambush reached stipulation depends on how I want surge to look (AmbushManager.state == "AMBUSH_REACHED")
         print("SURGE - PREY IN AMBUSH REGION")
         AmbushManager.state = "SURGE"
-        controller.pause()
         if world.cells[AmbushManager.current_ambush_cell].location.y > prey.step.location.y:
             surge_location = world.cells[surge_cell_dict[AmbushManager.current_ambush_cell][1]].location
         else:
@@ -340,10 +343,9 @@ while running:
         if AmbushManager.state == "SURGE":
             print("DRIVE BACK TO AMBUSH CELL")
         AmbushManager.state = "AMBUSH"
-        controller.pause()
         current_predator_destination = world.cells[AmbushManager.current_ambush_cell].location
 
-    ############## SEND DESTINATION ######################
+    ########## CHECK DESTINATION      ##########
     # CHECK IF CURRENT DESTINATION REACHED PAUSE ROBOT -> BUFFER
     # changed so that only buffer if surge cell otherwise
     if current_predator_destination.dist(predator.step.location) < (cell_size * 1) and AmbushManager.state == "SURGE":
@@ -352,7 +354,9 @@ while running:
         #     AmbushManager.state = "AMBUSH_REACHED"
         current_predator_destination = predator.step.location # TODO: added this without checking it
         controller.pause()
-    # IF NOT SEND ROBOT TO DESTINATION #
+
+    ############## SEND DESTINATION ######################
+    # IF NOT SEND ROBOT TO DESTINATION
     # todo: changed this logic without checking
     elif current_predator_destination != previous_predator_destination:
         print(f"CURRENT BEHAVIOR STATE: {AmbushManager.state}")
@@ -364,7 +368,6 @@ while running:
         else:
             controller.set_destination(current_predator_destination, SURGE_ROTATION) # TODO: check that this is sent correctly
 
-        # if current_predator_destination != previous_predator_destination:
         destination_circle.set(center=(current_predator_destination.x, current_predator_destination.y), color=explore_color)
         controller_timer.reset()
         controller.resume()

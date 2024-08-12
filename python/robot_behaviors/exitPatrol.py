@@ -1,3 +1,5 @@
+import pandas as pd
+
 from robot_util import *
 """ 
 Robot has two modes
@@ -25,6 +27,8 @@ current_predator_destination = Location()
 episode_in_progress = False
 experiment_log_folder = "/research/data"
 current_experiment_name = ""
+mode_data = []
+df = pd.DataFrame()
 
 # EXPERIMENT FUNCTIONS
 def get_experiment_folder(experiment_name):
@@ -79,10 +83,16 @@ def on_episode_started(parameters):
 
 
 def on_episode_finished(m):
-    global episode_in_progress, current_predator_destination, episode_count, df
+    global episode_in_progress, current_predator_destination, episode_count, mode_data, df # TODO: FIX HOW EP COUNT IS AQUIRED
     print("EPISODE FINISHED")
     controller.pause()
     episode_in_progress = False
+
+#  # write to pickle file - (mode, start_frame) # TODO: test extra data record
+#     pickle_file_path = f'/research/data/4ROBOT/{current_experiment_name}/{current_experiment_name}.pkl' # uploads each episode to make sure data gets recorded if experiment fails
+#     df = log_data(pickle_file_path, episode_count, "ambush_cell_id", AmbushManager.current_ambush_cell, df)
+#     mode_data = []
+#     episode_count += 1
 
     # set destination to patrol path waypoint
     ep_manager.patrol_waypoint = random.choice(list(patrol_path.values()))       # select random waypoint in patrol path
@@ -195,7 +205,7 @@ class ExitPatrolManager:
         self.chase_region_dict = {'north': self.north_chase_region, 'south': self.south_chase_region, 'none': []}
         self.side_dict = {'north': self.north_side, 'south': self.south_side, 'none': []}
         self.patrol_waypoint = None # cell id
-        self.mode = 'chase' # patrol or chase
+        self.mode = 'chase' # random chase, direct chase, patrol, patrol reached
 
         # prey state machine
         self.prey_id = -1
@@ -292,6 +302,7 @@ controller.set_behavior(0)
 # EXIT PATROL SETUP
 patrol_path = {'north': 274, 'middle': 326, 'south': 268}
 ep_manager = ExitPatrolManager(world)
+previous_mode = ep_manager.mode
 draw_strategy_features()
 
 # KEYPRESS SETUP
@@ -300,6 +311,7 @@ cid_keypress = display.fig.canvas.mpl_connect('key_press_event', on_keypress)
 
 print("PRESS M TO SET PATROL WAYPOINT")
 running = True
+
 while running:
     # print(world.cells.find(prey.step.location))
     if episode_in_progress:
@@ -378,6 +390,10 @@ while running:
         controller.set_destination(current_predator_destination)  # resend destination
         controller_timer.reset()
 
+    # record mode
+    # if previous_mode != ep_manager.mode:
+    #     mode_data.append((prey.step.frame, ep_manager.mode))
+    #     previous_mode = ep_manager.mode
 
     # PLOT AGENT STATES
     update_agent_positions()
