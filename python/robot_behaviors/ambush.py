@@ -102,7 +102,7 @@ def on_episode_finished(m):
     episode_in_progress = False
 
     # write to pickle file - ambush_cell each ep, ambush cell select bias, dict start surge-end surge
-    print(get_experiment_folder(current_experiment_name))
+    # print(get_experiment_folder(current_experiment_name))
     # pickle_file_path = f'/research/data/4ROBOT/RobotStrategyExtraData/{current_experiment_name}.pkl' # uploads each episode to make sure data gets recorded if experiment fails
     pickle_file_path = f"{get_experiment_folder(current_experiment_name)}/{current_experiment_name}.pkl"
     df = log_data(pickle_file_path, episode_count, "ambush_cell_id", AmbushManager.current_ambush_cell, df)  # TODO: check this

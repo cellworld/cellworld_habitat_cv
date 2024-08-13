@@ -6,6 +6,8 @@ from cellworld_experiment_service import ExperimentClient
 from random import choice, choices
 from time import sleep
 from json_cpp import JsonList
+import pandas as pd
+from robot_util import log_data
 
 
 display = None
@@ -13,6 +15,9 @@ episode_in_progress = False
 experiment_log_folder = "/research/data"
 current_experiment_name = ""
 
+df = pd.DataFrame() # TODO: test this
+episode_count = 0
+prey_entered_step = Step()
 
 possible_destinations = Cell_group()
 spawn_locations = Cell_group()
@@ -67,12 +72,16 @@ def on_experiment_started(experiment):
 
 def on_episode_finished(m):
     print("EPISODE FINISHED")
-    global episode_in_progress, current_predator_destination, inertia_buffer
+    global episode_in_progress, current_predator_destination, inertia_buffer, episode_count, df
 
     controller.resume()
     inertia_buffer = 1
     episode_in_progress = False
     go_to_random_location(spawn_locations)
+    pickle_file_path = f"{get_experiment_folder(current_experiment_name)}/{current_experiment_name}.pkl"
+
+    df = log_data(pickle_file_path, episode_count, "prey_entered_arena", prey_entered_step, df)  # TODO: check this
+    episode_count += 1
 
 
 def on_capture( frame:int ):
@@ -90,10 +99,12 @@ def on_episode_started(parameters):
 
 
 def on_prey_entered_arena():
+    global prey_entered_step
     print("Prey Entered")
     global episode_in_progress, controller_timer
     episode_in_progress = True
     controller_timer = Timer(5.0)
+    prey_entered_step = prey.step
 
 
 def load_world():
