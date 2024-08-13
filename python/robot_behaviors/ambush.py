@@ -226,18 +226,16 @@ class AmbushManager:
             cls.current_ambush_cell = random.choice(ambush_cell_id)
         else:
             probabilities = [v / total_bias for v in cls.bias.values()]
+            print(f"Bias Probabilities: {probabilities}")
             cls.current_ambush_cell = random.choices(list(cls.bias.keys()), probabilities)[0]
 
         return cls.current_ambush_cell
 
     @classmethod
     def update_bias(cls, prey_trajectory):
-        print("BIAS UPDATE")
         # Decay the scores for each ambush cell
         for ambush_cell_id in cls.bias.keys():
             cls.bias[ambush_cell_id] *= cls.decay_rate
-        print("decay", cls.bias)
-        print(prey_trajectory)
         # Track entrance and exit state for each ambush zone
         entered_cells = set()
         for x, y in prey_trajectory:
