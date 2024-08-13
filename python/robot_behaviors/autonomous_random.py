@@ -72,7 +72,7 @@ def on_experiment_started(experiment):
 
 def on_episode_finished(m):
     print("EPISODE FINISHED")
-    global episode_in_progress, current_predator_destination, inertia_buffer, episode_count, df
+    global episode_in_progress, current_predator_destination, inertia_buffer, episode_count, df, prey_entered_step
 
     controller.resume()
     inertia_buffer = 1
@@ -81,6 +81,7 @@ def on_episode_finished(m):
     pickle_file_path = f"{get_experiment_folder(current_experiment_name)}/{current_experiment_name}.pkl"
 
     df = log_data(pickle_file_path, episode_count, "prey_entered_arena", prey_entered_step, df)  # TODO: check this
+    prey_entered_step = Step()
     episode_count += 1
 
 

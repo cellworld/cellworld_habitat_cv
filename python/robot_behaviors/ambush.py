@@ -25,6 +25,7 @@ previous_predator_destination = Location(0,0)
 destination_circle = None
 ambush_circle = None
 current_experiment_name = ""
+prey_entered_step = Step()
 
 
 # TIMER AND KILL SWITCH INIT
@@ -56,10 +57,12 @@ def on_capture(frame:int):
 
 
 def on_prey_entered_arena():
+    global prey_entered_step
     print("PREY ENTERED ARENA")
     global episode_in_progress, controller_timer
     episode_in_progress = True
     controller_timer.reset()
+    prey_entered_step = prey.step
     # controller_timer = Timer(5.0)
 
 
@@ -96,7 +99,7 @@ def on_episode_started(parameters):
 
 
 def on_episode_finished(m):
-    global episode_in_progress, current_predator_destination, episode_count, df, current_predator_heading
+    global episode_in_progress, current_predator_destination, episode_count, df, current_predator_heading, prey_entered_step
     print("EPISODE FINISHED")
     controller.pause()              # TODO: do I need this
     episode_in_progress = False
@@ -107,6 +110,8 @@ def on_episode_finished(m):
     pickle_file_path = f"{get_experiment_folder(current_experiment_name)}/{current_experiment_name}.pkl"
     df = log_data(pickle_file_path, episode_count, "ambush_cell_id", AmbushManager.current_ambush_cell, df)  # TODO: check this
     df = log_data(pickle_file_path, episode_count, "bias", AmbushManager.bias, df)
+    df = log_data(pickle_file_path, episode_count, "prey_entered_arena", prey_entered_step, df)  # TODO: check this
+    prey_entered_step = Step()
     episode_count += 1
 
     # update ambush cell bias - loop through previous trajectory
