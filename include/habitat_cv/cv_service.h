@@ -122,7 +122,7 @@ namespace habitat_cv{
         std::string video_path;
         std::string background_path;
 
-        float robot_height = 12;   // cm  // 5.0 (short) , 10.4 (tall), 12.0 (carapace)
+        float robot_height = 10.4;   // cm  // 5.0 (short) , 10.4 (tall), 12.0 (carapace)
         std::vector<cv::Point2f> zoom_rectangles;
         cv::Size zoom_size{150,150};
         unsigned int episode_count{};

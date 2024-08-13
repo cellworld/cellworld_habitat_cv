@@ -66,3 +66,12 @@ def generate_pattern(start):
         pattern = ['middle', 'south', 'middle', 'north'] # default north if not specified
     # Use cycle to repeat the pattern indefinitely
     return itertools.cycle(pattern)
+
+
+def get_patrol_side_waypoint(value_to_find, mouse_side, patrol_path):
+    assert (mouse_side == "north" or mouse_side == "south")
+    key = [k for k, v in patrol_path.items() if v == value_to_find][0]
+    if key!= 'middle':
+        return patrol_path['middle']
+    else:
+        return patrol_path[mouse_side]

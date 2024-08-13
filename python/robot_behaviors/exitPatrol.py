@@ -1,4 +1,5 @@
 import pandas as pd
+# TODO: test change made if in north cells only go between north and middle waypoint
 
 from robot_util import *
 """ 
@@ -168,7 +169,7 @@ def on_keypress(event):
             print(f"NEW waypoint cell selected: {ep_manager.patrol_waypoint}")
             current_predator_destination = world.cells[ep_manager.patrol_waypoint].location
             destination_circle_color = patrol
-            ep_manager.mode = 'not active'    # this is chase because what to call generate pattern function during control loop
+            ep_manager.mode = 'not active'
             ep_manager.previous_side = next((k for k, v in patrol_path.items() if v == ep_manager.patrol_waypoint), None)
             controller.set_destination(current_predator_destination)
             destination_circle.set(center=(current_predator_destination.x, current_predator_destination.y), color=destination_circle_color)
@@ -204,8 +205,8 @@ class ExitPatrolManager:
         self.north_side, self.south_side = self._get_side()
         self.chase_region_dict = {'north': self.north_chase_region, 'south': self.south_chase_region, 'none': []}
         self.side_dict = {'north': self.north_side, 'south': self.south_side, 'none': []}
-        self.patrol_waypoint = None # cell id
-        self.mode = 'chase' # random chase, direct chase, patrol, patrol reached
+        self.patrol_waypoint = None # north, middle, or south
+        self.mode = 'chase' # side patrol, direct chase, patrol, patrol reached
 
         # prey state machine
         self.prey_id = -1
@@ -337,29 +338,35 @@ while running:
             destination_circle_color = chase_visible_in_region
 
         # random movement in region
+        # TODO: just changed this to strategic patrol instead
         else:
-            if ep_manager.mode != "random_chase":
-                ep_manager.mode = "random_chase"
-                current_predator_destination = select_random_cell(ep_manager.chase_region_dict[ep_manager.current_side], previous_predator_destination, 3, world)
+            # select side patrol cell
+            if ep_manager.mode != "side_patrol": # or ep_manager.mode != "patrol":
+                ep_manager.mode = "side_patrol"
+                ep_manager.patrol_waypoint = get_patrol_side_waypoint(ep_manager.patrol_waypoint, ep_manager.current_side, patrol_path)
+                current_predator_destination = world.cells[ep_manager.patrol_waypoint].location
                 destination_circle_color = chase_out_region_or_hidden
+
     # PATROL
     elif episode_in_progress:
         # next patrol cell in pattern
         if ep_manager.mode == "patrol_reached":
             print("PATROL REACHED")
             ep_manager.mode = "patrol"
-            waypoint_cell_key = next(pattern_iterator)
-            print(f"Continue Next Waypoint: {waypoint_cell_key}")
-            current_predator_destination = world.cells[patrol_path[waypoint_cell_key]].location
+            pattern_key = next(pattern_iterator)
+            ep_manager.patrol_waypoint = patrol_path[pattern_key]
+            print(f"Continue Next Waypoint: {pattern_key}")
+            current_predator_destination = world.cells[ep_manager.patrol_waypoint].location
         # generate pattern from previous chase region
         elif ep_manager.mode != "patrol":
             print("PATROL MODE")
             ep_manager.mode = "patrol"
             pattern_iterator = generate_pattern(ep_manager.previous_side)
-            waypoint_cell_key = next(pattern_iterator)
+            pattern_key = next(pattern_iterator)
+            ep_manager.patrol_waypoint = patrol_path[pattern_key]
             print(f"Patrol Pattern Start: {ep_manager.previous_side}")
-            print(f"Next Waypoint: {waypoint_cell_key}")
-            current_predator_destination = world.cells[patrol_path[waypoint_cell_key]].location
+            print(f"Next Waypoint: {ep_manager.patrol_waypoint}")
+            current_predator_destination = world.cells[ep_manager.patrol_waypoint].location
         destination_circle_color = patrol
 
 
@@ -373,8 +380,8 @@ while running:
     ########## CHECK DESTINATION      ##########
     if current_predator_destination.dist(predator.step.location) < (cell_size * 1):
         # print("Destination reached")
-        if ep_manager.mode == "random_chase" and episode_in_progress:
-            ep_manager.mode = "random_chase_reached"
+        if ep_manager.mode == "side_patrol" and episode_in_progress: # todo: this was the main issue
+            ep_manager.mode = "side_patrol_reached"
         elif ep_manager.mode == "patrol" and episode_in_progress:
             ep_manager.mode = "patrol_reached"
 
