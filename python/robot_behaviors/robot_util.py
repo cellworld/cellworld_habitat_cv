@@ -56,15 +56,14 @@ def select_random_cell(cell_group_ids: int, previous_destination: cellworld.Loca
     return world.cells[random.choice(eligible_cells)].location
 
 def generate_pattern(start):
-    directions = ['north', 'middle', 'south']
-    pattern = []
-    if start == 'south':
-        pattern = ['middle', 'north', 'middle', 'south']
+    # directions = ['north', 'middle', 'south']
+    # pattern = []
+    if start == 'north':
+        pattern = ['middle', 'south', 'middle', 'north']
     elif start == 'middle':
         pattern = ['north', 'middle', 'south', 'middle']
     else:
-        pattern = ['middle', 'south', 'middle', 'north'] # default north if not specified
-    # Use cycle to repeat the pattern indefinitely
+        pattern = ['middle', 'north', 'middle', 'south']
     return itertools.cycle(pattern)
 
 

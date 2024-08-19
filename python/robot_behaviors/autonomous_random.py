@@ -78,8 +78,8 @@ def on_episode_finished(m):
     inertia_buffer = 1
     episode_in_progress = False
     go_to_random_location(spawn_locations)
-    pickle_file_path = f"{get_experiment_folder(current_experiment_name)}/{current_experiment_name}.pkl"
 
+    pickle_file_path = f"{get_experiment_folder(current_experiment_name)}/{current_experiment_name}.pkl"
     df = log_data(pickle_file_path, episode_count, "prey_entered_arena", prey_entered_step, df)  # TODO: check this
     prey_entered_step = Step()
     episode_count += 1

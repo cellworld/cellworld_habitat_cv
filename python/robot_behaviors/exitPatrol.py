@@ -7,6 +7,8 @@ Robot has two modes
 1. chase: if prey.is_valid AND is in north or south cells
 2. patrol: otherwise
 """
+# TODO check on prey entered something is weird
+
 # WORLD SETUP
 occlusions = "21_05"
 world = World.get_from_parameters_names("hexagonal", "canonical", occlusions)
@@ -30,6 +32,8 @@ experiment_log_folder = "/research/data"
 current_experiment_name = ""
 mode_data = []
 df = pd.DataFrame()
+prey_entered_step = Step()
+episode_count = 0
 
 # EXPERIMENT FUNCTIONS
 def get_experiment_folder(experiment_name):
@@ -53,10 +57,11 @@ def on_capture(frame:int):
 
 
 def on_prey_entered_arena():
-    print("PREY ENTERED ARENA")
-    global episode_in_progress, controller_timer
+    global episode_in_progress, controller_timer, prey_entered_step
     episode_in_progress = True
     controller_timer.reset()
+    prey_entered_step = prey.step
+
 
 
 def on_step(step: Step):
@@ -74,8 +79,6 @@ def on_experiment_started(experiment):
     print("Experiment started:", experiment)
     experiments[experiment.experiment_name] = experiment.copy()
 
-    # current_predator_destination = predator.step.location
-    # destination_circle.set(center=(current_predator_destination.x, current_predator_destination.y), color=explore_color)
 
 
 def on_episode_started(parameters):
@@ -84,16 +87,16 @@ def on_episode_started(parameters):
 
 
 def on_episode_finished(m):
-    global episode_in_progress, current_predator_destination, episode_count, mode_data, df # TODO: FIX HOW EP COUNT IS AQUIRED
+    global episode_in_progress, current_predator_destination, episode_count, mode_data, df, prey_entered_step # TODO: FIX HOW EP COUNT IS AQUIRED
     print("EPISODE FINISHED")
     controller.pause()
     episode_in_progress = False
 
-#  # write to pickle file - (mode, start_frame) # TODO: test extra data record
-#     pickle_file_path = f'/research/data/4ROBOT/{current_experiment_name}/{current_experiment_name}.pkl' # uploads each episode to make sure data gets recorded if experiment fails
-#     df = log_data(pickle_file_path, episode_count, "ambush_cell_id", AmbushManager.current_ambush_cell, df)
-#     mode_data = []
-#     episode_count += 1
+    # write to pickle file - (mode, start_frame) # TODO: test extra data record
+    pickle_file_path = f"{get_experiment_folder(current_experiment_name)}/{current_experiment_name}.pkl"
+    df = log_data(pickle_file_path, episode_count, "prey_entered_arena", prey_entered_step, df)  # TODO: check this
+    prey_entered_step = Step()
+    episode_count += 1
 
     # set destination to patrol path waypoint
     ep_manager.patrol_waypoint = random.choice(list(patrol_path.values()))       # select random waypoint in patrol path
