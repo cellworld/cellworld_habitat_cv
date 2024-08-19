@@ -1,6 +1,6 @@
 {
-  "max_forward": 50,
-  "min_forward": 0,
+  "max_forward": 60,
+  "min_forward": 10,
   "max_backward": -50,
   "min_backward": 0,
   "stop": 0
