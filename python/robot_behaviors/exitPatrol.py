@@ -57,7 +57,8 @@ def on_capture(frame:int):
 
 
 def on_prey_entered_arena():
-    global episode_in_progress, controller_timer, prey_entered_step
+    global prey_entered_step
+    global episode_in_progress, controller_timer
     episode_in_progress = True
     controller_timer.reset()
     prey_entered_step = prey.step
