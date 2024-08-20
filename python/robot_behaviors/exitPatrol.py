@@ -6,6 +6,8 @@ from robot_util import *
 Robot has two modes
 1. chase: if prey.is_valid AND is in north or south cells
 2. patrol: otherwise
+
+best mouse strategy would be to stay hidden
 """
 # TODO check on prey entered something is weird
 
@@ -30,9 +32,8 @@ current_predator_destination = Location()
 episode_in_progress = False
 experiment_log_folder = "/research/data"
 current_experiment_name = ""
-mode_data = []
-df = pd.DataFrame()
-prey_entered_step = Step()
+# df = pd.DataFrame()
+# prey_entered_step = Step()
 episode_count = 0
 
 # EXPERIMENT FUNCTIONS
@@ -57,11 +58,10 @@ def on_capture(frame:int):
 
 
 def on_prey_entered_arena():
-    global prey_entered_step
     global episode_in_progress, controller_timer
     episode_in_progress = True
     controller_timer.reset()
-    prey_entered_step = prey.step
+
 
 
 
@@ -70,7 +70,7 @@ def on_step(step: Step):
         predator.is_valid = Timer(1.0)
         predator.step = step
     else:
-        prey.is_valid = Timer(2.0)  # TODO: may need to tune this
+        prey.is_valid = Timer(2.0)  # TODO: may need to tune this  (2.0 -> 3.0)
         prey.step = step
 
 
@@ -88,16 +88,16 @@ def on_episode_started(parameters):
 
 
 def on_episode_finished(m):
-    global episode_in_progress, current_predator_destination, episode_count, mode_data, df, prey_entered_step # TODO: FIX HOW EP COUNT IS AQUIRED
+    global episode_in_progress, current_predator_destination, episode_count # TODO: FIX HOW EP COUNT IS AQUIRED
     print("EPISODE FINISHED")
     controller.pause()
     episode_in_progress = False
 
     # write to pickle file - (mode, start_frame) # TODO: test extra data record
-    pickle_file_path = f"{get_experiment_folder(current_experiment_name)}/{current_experiment_name}.pkl"
-    df = log_data(pickle_file_path, episode_count, "prey_entered_arena", prey_entered_step, df)  # TODO: check this
-    prey_entered_step = Step()
-    episode_count += 1
+    # pickle_file_path = f"{get_experiment_folder(current_experiment_name)}/{current_experiment_name}.pkl"
+    # df = log_data(pickle_file_path, episode_count, "prey_entered_arena", prey_entered_step, df)  # TODO: check this
+    # prey_entered_step = Step()
+    # episode_count += 1
 
     # set destination to patrol path waypoint
     ep_manager.patrol_waypoint = random.choice(list(patrol_path.values()))       # select random waypoint in patrol path
@@ -305,7 +305,7 @@ controller.on_step = on_step
 controller.set_behavior(0)
 
 # EXIT PATROL SETUP
-patrol_path = {'north': 274, 'middle': 326, 'south': 268}
+patrol_path = {'north': 274, 'middle': 326, 'south': 236}
 ep_manager = ExitPatrolManager(world)
 previous_mode = ep_manager.mode
 draw_strategy_features()
@@ -341,11 +341,11 @@ while running:
             current_predator_destination = prey.step.location
             destination_circle_color = chase_visible_in_region
 
-        # random movement in region
-        # TODO: just changed this to strategic patrol instead
+
+        # strategic patrol instead
         else:
             # select side patrol cell
-            if ep_manager.mode != "side_patrol": # or ep_manager.mode != "patrol":
+            if ep_manager.mode != "side_patrol":  # or ep_manager.mode != "patrol":
                 ep_manager.mode = "side_patrol"
                 ep_manager.patrol_waypoint = get_patrol_side_waypoint(ep_manager.patrol_waypoint, ep_manager.current_side, patrol_path)
                 current_predator_destination = world.cells[ep_manager.patrol_waypoint].location

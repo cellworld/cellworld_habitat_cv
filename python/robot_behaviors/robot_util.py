@@ -66,8 +66,27 @@ def generate_pattern(start):
         pattern = ['middle', 'north', 'middle', 'south']
     return itertools.cycle(pattern)
 
-
 def get_patrol_side_waypoint(value_to_find, mouse_side, patrol_path):
+    # TODO: this function is new need to test
+    assert (mouse_side == "north" or mouse_side == "south")
+    keys = [k for k, v in patrol_path.items() if v == value_to_find][0] # current waypoint id to cardinal direction string
+
+    # if mouse is in pursuit
+    if not keys:
+        key = mouse_side
+    else:
+        key = keys[0]
+
+    # catches instances where mouse seen on opposite side of habitat
+    if key != mouse_side and key != 'middle':  # if waypoint is opposite to side go middle
+        return patrol_path['middle']
+
+    elif key != 'middle':
+        return patrol_path['middle']
+    else:
+        return patrol_path[mouse_side]
+
+def get_patrol_side_waypoint_old(value_to_find, mouse_side, patrol_path):
     assert (mouse_side == "north" or mouse_side == "south")
     key = [k for k, v in patrol_path.items() if v == value_to_find][0]
     if key!= 'middle':
