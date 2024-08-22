@@ -60,31 +60,32 @@ def generate_pattern(start):
     # pattern = []
     if start == 'north':
         pattern = ['middle', 'south', 'middle', 'north']
-    elif start == 'middle':
+    elif start == 'middle':                                     # only time it would be middle is if spawned middle - robot will start north
         pattern = ['north', 'middle', 'south', 'middle']
     else:
         pattern = ['middle', 'north', 'middle', 'south']
     return itertools.cycle(pattern)
 
-def get_patrol_side_waypoint(value_to_find, mouse_side, patrol_path):
-    # TODO: this function is new need to test
-    assert (mouse_side == "north" or mouse_side == "south")
-    keys = [k for k, v in patrol_path.items() if v == value_to_find][0] # current waypoint id to cardinal direction string
 
-    # if mouse is in pursuit
-    if not keys:
-        key = mouse_side
+def get_patrol_side_waypoint(waypoint_id, mouse_side, patrol_path, ep_manager_mode):
+    assert (mouse_side == "north" or mouse_side == "south") # the mouse should be valid and detected on a side if this function is called
+    key = next((k for k,v in patrol_path.items() if v == waypoint_id), 'middle') # current waypoint id to cardinal direction string
+
+    if ep_manager_mode == "patrol":
+        # if mouse headed to waypoint not in strategic patrol path
+        if key != mouse_side and key != 'middle': # todo: what should i do if waypoint is opposite side
+            return patrol_path['middle']
+        # otherwise continue current heading then reassign
+        else:
+            return waypoint_id
     else:
-        key = keys[0]
-
-    # catches instances where mouse seen on opposite side of habitat
-    if key != mouse_side and key != 'middle':  # if waypoint is opposite to side go middle
-        return patrol_path['middle']
-
-    elif key != 'middle':
-        return patrol_path['middle']
-    else:
-        return patrol_path[mouse_side]
+        # catches instances where mouse seen on opposite side of habitat
+        if key != mouse_side and key != 'middle':  # if waypoint is opposite to side go middle
+            return patrol_path['middle']
+        elif key != 'middle':
+            return patrol_path['middle']
+        else:
+            return patrol_path[mouse_side]
 
 def get_patrol_side_waypoint_old(value_to_find, mouse_side, patrol_path):
     assert (mouse_side == "north" or mouse_side == "south")

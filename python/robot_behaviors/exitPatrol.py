@@ -9,7 +9,9 @@ Robot has two modes
 
 best mouse strategy would be to stay hidden
 """
-# TODO check on prey entered something is weird
+# TODO: check new destination buffer
+# TODO: check transition from different modes
+# TODO: add keypress to make ep in progress and prey entered true and another for false
 
 # WORLD SETUP
 occlusions = "21_05"
@@ -70,7 +72,7 @@ def on_step(step: Step):
         predator.is_valid = Timer(1.0)
         predator.step = step
     else:
-        prey.is_valid = Timer(2.0)  # TODO: may need to tune this  (2.0 -> 3.0)
+        prey.is_valid = Timer(3.0)  # TODO: may need to tune this  (2.0 -> 3.0)
         prey.step = step
 
 
@@ -92,12 +94,6 @@ def on_episode_finished(m):
     print("EPISODE FINISHED")
     controller.pause()
     episode_in_progress = False
-
-    # write to pickle file - (mode, start_frame) # TODO: test extra data record
-    # pickle_file_path = f"{get_experiment_folder(current_experiment_name)}/{current_experiment_name}.pkl"
-    # df = log_data(pickle_file_path, episode_count, "prey_entered_arena", prey_entered_step, df)  # TODO: check this
-    # prey_entered_step = Step()
-    # episode_count += 1
 
     # set destination to patrol path waypoint
     ep_manager.patrol_waypoint = random.choice(list(patrol_path.values()))       # select random waypoint in patrol path
@@ -170,14 +166,14 @@ def on_keypress(event):
         # can select new patrol waypoint when episode is not in progress
         if len(action) > 3 and action[3] and not episode_in_progress:
             ep_manager.patrol_waypoint = random.choice(list(patrol_path.values()))       # select random waypoint in patrol path
-            print(f"NEW waypoint cell selected: {ep_manager.patrol_waypoint}")
             current_predator_destination = world.cells[ep_manager.patrol_waypoint].location
             destination_circle_color = patrol
             ep_manager.mode = 'not active'
-            ep_manager.previous_side = next((k for k, v in patrol_path.items() if v == ep_manager.patrol_waypoint), None)
+            ep_manager.previous_side = next((k for k, v in patrol_path.items() if v == ep_manager.patrol_waypoint), None) # should never be none - only time it can be assigned middle
             controller.set_destination(current_predator_destination)
             destination_circle.set(center=(current_predator_destination.x, current_predator_destination.y), color=destination_circle_color)
             controller_timer.reset()
+            print(f"Previous side based on PRESS M selection: {ep_manager.previous_side}") # TODO: check that this is correct
 
 
 def on_click(event):
@@ -216,7 +212,7 @@ class ExitPatrolManager:
         self.prey_id = -1
         self.current_region = 'none'    # 'north', 'south', 'none'
         self.current_side = 'none'      # 'north', 'south', 'none'
-        self.previous_side = 'none'
+        self.previous_side = 'none'     # 'north', 'south', (middle iff spawned in middle)
 
     def update_state(self, prey_id):
         self.prey_id = prey_id
@@ -317,15 +313,15 @@ cid_keypress = display.fig.canvas.mpl_connect('key_press_event', on_keypress)
 print("PRESS M TO SET PATROL WAYPOINT")
 running = True
 
+
 while running:
-    # print(world.cells.find(prey.step.location))
+    # update prey state based on last seen location
+    # current_side ('north', 'south', 'none'); previous_side ('north', 'south'); current_region ('north', 'south', 'none')
     if episode_in_progress:
         ep_manager.update_state(world.cells.find(prey.step.location))
 
-
     # IF PAUSE DONT EXECUTE REST OF LOOP ROBOT STOPS MOVING
     if not controller_kill_switch:
-        # print("KILL SWITCH OR PATROL CELL NOT SET")
         controller.set_destination(predator.step.location)
         controller.pause()
         update_agent_positions()
@@ -333,7 +329,6 @@ while running:
         continue
     ########## DETERMINE DESTINATION ##########
     # CHASE
-    # print(prey.is_valid, ep_manager.current_side, episode_in_progress)
     if prey.is_valid and ep_manager.current_side != "none" and episode_in_progress:
         # direct pursuit
         if ep_manager.current_region != "none":
@@ -341,15 +336,20 @@ while running:
             current_predator_destination = prey.step.location
             destination_circle_color = chase_visible_in_region
 
+            # TODO: dont know if this will take to long but try is
+            ep_manager.patrol_waypoint = min(patrol_path.values(), key=lambda id: predator.step.location.dist(world.cells[id].location))
+            print(f"Direct chase closest waypoint: {ep_manager.patrol_waypoint}")
+
 
         # strategic patrol instead
         else:
             # select side patrol cell
             if ep_manager.mode != "side_patrol":  # or ep_manager.mode != "patrol":
-                ep_manager.mode = "side_patrol"
-                ep_manager.patrol_waypoint = get_patrol_side_waypoint(ep_manager.patrol_waypoint, ep_manager.current_side, patrol_path)
+                ep_manager.patrol_waypoint = get_patrol_side_waypoint(ep_manager.patrol_waypoint, ep_manager.current_side, patrol_path, ep_manager.mode)
                 current_predator_destination = world.cells[ep_manager.patrol_waypoint].location
                 destination_circle_color = chase_out_region_or_hidden
+                print(f"SIDE PATROL, {ep_manager.patrol_waypoint}")
+                ep_manager.mode = "side_patrol"
 
     # PATROL
     elif episode_in_progress:
@@ -359,17 +359,16 @@ while running:
             ep_manager.mode = "patrol"
             pattern_key = next(pattern_iterator)
             ep_manager.patrol_waypoint = patrol_path[pattern_key]
-            print(f"Continue Next Waypoint: {pattern_key}")
+            print(f"Patrol Next Waypoint: {pattern_key}")
             current_predator_destination = world.cells[ep_manager.patrol_waypoint].location
         # generate pattern from previous chase region
         elif ep_manager.mode != "patrol":
-            print("PATROL MODE")
+            print("START PATROL MODE")
             ep_manager.mode = "patrol"
             pattern_iterator = generate_pattern(ep_manager.previous_side)
             pattern_key = next(pattern_iterator)
             ep_manager.patrol_waypoint = patrol_path[pattern_key]
             print(f"Patrol Pattern Start: {ep_manager.previous_side}")
-            print(f"Next Waypoint: {ep_manager.patrol_waypoint}")
             current_predator_destination = world.cells[ep_manager.patrol_waypoint].location
         destination_circle_color = patrol
 
@@ -382,9 +381,9 @@ while running:
         controller.resume()
 
     ########## CHECK DESTINATION      ##########
-    if current_predator_destination.dist(predator.step.location) < (cell_size * 1):
+    if current_predator_destination.dist(predator.step.location) < (cell_size * 1.5): # TODO: made this less sensative check if i like it
         # print("Destination reached")
-        if ep_manager.mode == "side_patrol" and episode_in_progress: # todo: this was the main issue
+        if ep_manager.mode == "side_patrol" and episode_in_progress:
             ep_manager.mode = "side_patrol_reached"
         elif ep_manager.mode == "patrol" and episode_in_progress:
             ep_manager.mode = "patrol_reached"
@@ -401,10 +400,6 @@ while running:
         controller.set_destination(current_predator_destination)  # resend destination
         controller_timer.reset()
 
-    # record mode
-    # if previous_mode != ep_manager.mode:
-    #     mode_data.append((prey.step.frame, ep_manager.mode))
-    #     previous_mode = ep_manager.mode
 
     # PLOT AGENT STATES
     update_agent_positions()

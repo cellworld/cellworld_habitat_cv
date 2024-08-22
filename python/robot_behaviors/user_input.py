@@ -50,6 +50,7 @@ def on_episode_finished(m):
     controller.set_destination(current_predator_destination)     # set destination
     destination_circle.set(center = (current_predator_destination.x, current_predator_destination.y), color = spawn_color)
     controller.pause()
+
 def on_capture( frame:int ):
     global inertia_buffer
     controller.set_behavior(0)
@@ -75,6 +76,11 @@ def load_world():
     occlusion = Cell_group_builder.get_from_name("hexagonal", occlusions + ".occlusions")
     world.set_occlusions(occlusion)
     display = Display(world, fig_size=(9.0*.75, 8.0*.75), animated=True)
+
+    spawn_locations = world.create_cell_group(Cell_group_builder.get_from_name("hexagonal", occlusions + ".spawn_locations"))
+    for spawn_cell in spawn_locations:
+        display.cell(cell=spawn_cell, color='grey', alpha = 0.5)
+
 
 
 def on_step(step: Step):
@@ -191,7 +197,6 @@ display.set_agent_marker("prey", Agent_markers.arrow())
 explore_color = "magenta"
 spawn_color = 'cyan'
 destination_circle = display.circle(predator.step.location, 0.01, explore_color) # initialize at current predator location
-
 
 running = True
 while running:
