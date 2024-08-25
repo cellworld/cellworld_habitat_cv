@@ -6,10 +6,10 @@ world = World.get_from_parameters_names("hexagonal", "canonical", occlusions)
 cell_size = world.implementation.cell_transformation.size
 display = Display(world, fig_size=(9.0*.75, 8.0*.75), animated=True)
 explore_color = "cyan"
-ambush_region = cell_size * 3
+ambush_region = cell_size * 3.5 # TODO: play with this value
 
 # UTIL SETUP
-surge_cell_dict = {32: [19, 49], 277: [257, 257], 253: [233, 231], 269: [268, 290], 173: [172, 195]}    # key:ambush_cell, value:surge_cells
+surge_cell_dict = {32: [19, 49], 277: [257, 257], 253: [233, 231], 269: [ 290, 172], 173: [195, 172]} # key:ambush_cell, value:surge_cells [N, S]
 for ambush_cell_id, surge_cell_id in surge_cell_dict.items():
     surge_cell_dict[ambush_cell_id].append(get_angle(world.cells[ambush_cell_id].location, world.cells[surge_cell_id[0]].location))
 print(f'Surge Cell Dictionary: {surge_cell_dict}')
@@ -73,12 +73,6 @@ def on_step(step: Step):
     else:
         prey.is_valid = Timer(1.0) # TODO: may need to tune this
         prey.step = step
-
-        # Ambush predator only
-        if episode_in_progress:
-            AmbushManager.prey_state = prey.step.location.dist(world.cells[AmbushManager.current_ambush_cell].location) <= ambush_region
-        else:
-            AmbushManager.prey_state = 0 # TODO: check this no surge when ep in progress
         # surge_timer.reset()
 
 
@@ -323,6 +317,12 @@ AmbushManager.draw_ambush_zone()
 print("PRESS M TO SET INITIAL AMBUSH CELL")
 running = True
 while running:
+    # Ambush predator only - step recieve if in zone
+    if episode_in_progress:
+        AmbushManager.prey_state = prey.step.location.dist(world.cells[AmbushManager.current_ambush_cell].location) <= ambush_region
+    else:
+        AmbushManager.prey_state = 0 # TODO: check this no surge when ep in progress
+
 
     # IF PAUSE DONT EXECUTE REST OF LOOP ROBOT STOPS MOVING
     if not controller_kill_switch or AmbushManager.current_ambush_cell == None:
@@ -333,6 +333,7 @@ while running:
         previous_predator_destination = current_predator_destination
         continue
 
+
     ########## DETERMINE DESTINATION #####################
     # IF MOUSE IN AMBUSH REGION AND PREY.IS_VALID SET DESTINATION TO CORRECT SURGE CELL
     if AmbushManager.prey_state and prey.is_valid:
@@ -340,9 +341,9 @@ while running:
         print("SURGE - PREY IN AMBUSH REGION")
         AmbushManager.state = "SURGE"
         if world.cells[AmbushManager.current_ambush_cell].location.y > prey.step.location.y:
-            surge_location = world.cells[surge_cell_dict[AmbushManager.current_ambush_cell][1]].location
+            surge_location = world.cells[surge_cell_dict[AmbushManager.current_ambush_cell][1]].location # prey has smaller y (below)
         else:
-            surge_location = world.cells[surge_cell_dict[AmbushManager.current_ambush_cell][0]].location
+            surge_location = world.cells[surge_cell_dict[AmbushManager.current_ambush_cell][0]].location # prey has larger y (above)
         current_predator_destination = surge_location
 
     # ELSE SET DESTINATION BACK TO SELECTED AMBUSH CELL
