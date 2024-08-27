@@ -9,9 +9,11 @@ explore_color = "cyan"
 ambush_region = cell_size * 3.5 # TODO: play with this value
 
 # UTIL SETUP
-surge_cell_dict = {32: [19, 49], 277: [257, 257], 253: [233, 231], 269: [ 290, 172], 173: [195, 172]} # key:ambush_cell, value:surge_cells [N, S]
-for ambush_cell_id, surge_cell_id in surge_cell_dict.items():
-    surge_cell_dict[ambush_cell_id].append(get_angle(world.cells[ambush_cell_id].location, world.cells[surge_cell_id[0]].location))
+surge_cell_dict = {50: [19, 49], 277: [257, 257], 253: [233, 231], 269: [ 290, 172], 173: [195, 172]}  # key:ambush_cell, value:surge_cells [N, S]
+# for ambush_cell_id, surge_cell_id in surge_cell_dict.items():
+#     surge_cell_dict[ambush_cell_id].append(get_angle(world.cells[ambush_cell_id].location, world.cells[surge_cell_id[0]].location))
+# print(surge_cell_dict)
+surge_cell_dict = {50: [19, 49, 311.0], 277: [257, 257, 330.0], 253: [233, 231, 330.0], 269: [290, 172, 30.0], 173: [195, 172, 180.0]}  # TODO: check this 173 angle
 print(f'Surge Cell Dictionary: {surge_cell_dict}')
 episode_count = 0
 df = pd.DataFrame()
@@ -206,7 +208,7 @@ def on_click(event):
 # AMBUSH MANAGER
 class AmbushManager:
     current_ambush_cell = None   # cell_id
-    bias = {32: 1e-9, 277: 1e-9, 253: 1e-9, 269: 1e-9, 173: 1e-9}
+    bias = {50: 1e-9, 277: 1e-9, 253: 1e-9, 269: 1e-9, 173: 1e-9}
     decay_rate = 0.75        # todo: check mod decay rate
     state = None            # Surge, Ambush, Ambush Reached
     prey_state = 0          # True if last prey step in ambush zone
