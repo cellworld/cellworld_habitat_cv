@@ -94,3 +94,117 @@ def get_patrol_side_waypoint_old(value_to_find, mouse_side, patrol_path):
         return patrol_path['middle']
     else:
         return patrol_path[mouse_side]
+
+
+# KEEPER INTERCEPT FUNCTIONS
+
+
+
+
+# INTERCEPT CALCULATION FUNCTIONS
+def distance_to_intercept_point(route: np.array, start_index: int = 0, end_index: int = -1) -> float:
+    """Calculate distance between two specified points on path."""
+    if end_index < 0:
+        end_index = len(route) - 1
+
+    if start_index <= end_index:
+        distances = np.sqrt(np.sum(np.diff(route, axis=0) ** 2, axis=1))
+        total_distance = np.sum(distances[start_index:end_index])
+        return total_distance
+    else:
+        print("Start index greater than end index on route")
+        return 0.0
+
+def closest_open_cell(current_id: int, robot_world ,world_cells, world_free_cells) -> int:
+    """Find the closest open cell if the current cell is occluded."""
+    if robot_world.cells[current_id].occluded:
+        current_location = np.array([robot_world.cells[current_id].location.x, robot_world.cells[current_id].location.y])
+        distances = np.linalg.norm(world_free_cells - current_location, axis=1)
+        closest_index_in_free = np.argmin(distances)
+        closest_free_cell = world_free_cells[closest_index_in_free]
+        closest_index_in_cells = np.where((world_cells == closest_free_cell).all(axis=1))[0][0]
+        return closest_index_in_cells
+    return current_id
+
+
+def get_robot_interception_path(start_cell_location: cellworld.Location, end_cell_location: np.array, robot_world, path_object, robot_world_cells, robot_world_free_cells):
+    start_cell_id = closest_open_cell(robot_world.cells.find(start_cell_location), robot_world, robot_world_cells, robot_world_free_cells)
+    end_cell_location = Location(end_cell_location[0], end_cell_location[1])
+    end_cell_id = closest_open_cell(robot_world.cells.find(end_cell_location), robot_world, robot_world_cells, robot_world_free_cells)
+    return path_object.get_path(robot_world.cells[start_cell_id], robot_world.cells[end_cell_id]).get('location').to_numpy_array()
+
+def estimate_heading(position_window: np.array, num_points_avg=3) -> np.array:
+    """Estimate heading direction using averaged start and end points."""
+    if len(position_window) < 2 * num_points_avg:
+        return np.array([0, 0])
+
+    start_avg = np.mean(position_window[:num_points_avg], axis=0)
+    end_avg = np.mean(position_window[-num_points_avg:], axis=0)
+    direction_vector = end_avg - start_avg
+    norm = np.linalg.norm(direction_vector)
+
+    return direction_vector / norm if norm != 0 else np.array([0, 0])
+
+
+def project_points_onto_segments(mouse_position, highway_points):
+    """Project mouse position onto the segments of the highway."""
+    v = highway_points[:-1]  # Start of each segment
+    w = highway_points[1:]   # End of each segment
+    vw = w - v
+    vw_length_squared = np.sum(vw**2, axis=1)
+    vw_length_squared[vw_length_squared == 0] = 1  # Prevent division by zero for degenerate segments
+
+    vp = mouse_position - v
+    t = np.sum(vp * vw, axis=1) / vw_length_squared
+    t = np.clip(t, 0, 1)  # Ensure t is within [0, 1]
+
+    projection = v + t[:, np.newaxis] * vw
+    distances = np.linalg.norm(projection - mouse_position, axis=1)
+
+    return projection, distances
+
+
+
+def is_heading_towards_highway(mouse_position, highway_points, heading_vector, angle_threshold=np.pi/4):
+    """Check if the mouse is heading towards a highway."""
+    projection_points, distances = project_points_onto_segments(mouse_position, highway_points)
+    min_index = np.argmin(distances)
+    closest_point = projection_points[min_index]
+
+    tangent_vector = highway_points[min_index + 1] - highway_points[min_index]  # Tangent vector of the closest segment
+    tangent_vector /= np.linalg.norm(tangent_vector)  # Normalize the tangent vector
+
+    dot_product = np.dot(heading_vector, tangent_vector)
+    angle = np.arccos(np.clip(dot_product, -1.0, 1.0))  # A * B = |A||B| cos(theta)
+    print(f"Mouse highway heading error: {to_degrees(angle)}, pass: {angle < angle_threshold}")
+    return angle < angle_threshold, closest_point
+
+
+def find_closest_point(current_location, route):
+    x, y = current_location[0], current_location[1]
+    distances = np.sqrt((route[:, 0] - x) ** 2 + (route[:, 1] - y) ** 2)
+    min_index = np.argmin(distances)
+    # closest_point = route[min_index]
+    return min_index, distances[min_index]
+
+def mouse_is_near_and_heading_towards_highway(mouse_position, highway_route, heading_vector, threshold_distance, angle_threshold) -> tuple:
+    """Check if mouse is near and heading towards a highway."""
+    min_index, min_distance = find_closest_point(mouse_position, highway_route)
+    is_close = min_distance < threshold_distance
+    print(f"Mouse distance to highway: {min_distance}, is close enough: {is_close}")
+    heading_towards, closest_point = is_heading_towards_highway(mouse_position, highway_route, heading_vector, angle_threshold)
+    return is_close and heading_towards, min_index
+
+
+def calculate_intercept_time(prey_distance: float, predator_distance: float, PREY_SPEED = 0.75, PREDATOR_SPEED = 0.23) -> bool:
+    """
+    Calculate if the predator can intercept the prey.
+    Compare the time it would take for both predator and prey to reach the intercept point.
+    """
+    prey_time = prey_distance / PREY_SPEED
+    predator_time = predator_distance / PREDATOR_SPEED
+
+    print(f"Prey time to intercept: {prey_time}, Predator time to intercept: {predator_time}")
+    return predator_time < prey_time
+
+
