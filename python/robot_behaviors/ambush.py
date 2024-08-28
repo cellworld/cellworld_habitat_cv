@@ -251,9 +251,9 @@ class AmbushManager:
         # special rule for ambush cell with cell id = 32
         values = list(cls.bias.values())
         max_value, second_max_value = sorted(set(values), reverse=True)[:2]   # TODO: play around with decay and saturation limit
-        if cls.bias[32] == max_value:
-            print("32 max")
-            cls.bias[32] = second_max_value
+        if cls.bias[50] == max_value:
+            print("50 max")
+            cls.bias[50] = second_max_value
 
         # saturation limit
         for ambush_cell_id in cls.bias.keys():
