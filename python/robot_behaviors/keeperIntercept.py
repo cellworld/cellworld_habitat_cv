@@ -1,3 +1,9 @@
+"""
+To do list:
+cluster analysis RT add middle lane (from Ambush)**
+
+"""
+
 from robot_util import *
 
 # WORLD SETUP
@@ -22,12 +28,15 @@ with open(file_name, 'rb') as f:
     loaded_array = pickle.load(f)
 
 botEvade_north, botEvade_south = loaded_array[0], loaded_array[1]
-highway_list = [botEvade_north, botEvade_south]
+highway_list = [botEvade_north, botEvade_south]                 # highway streamlines; trajectory of locations
 highway_name_list = ['north', 'south']
-
+highway_dict = {'north': botEvade_north, 'south': botEvade_south}
+cell_highway_dict = {'north': get_cell_route(botEvade_north, world), 'south': get_cell_route(botEvade_south, world)}
+coarse_highway_dict = {key: get_potential_interecpt_point_highway_indices(cell_highway_dict[key], highway_dict[key], world) for key in highway_name_list}   # convert cell_highay to closest indices in highway
+print(coarse_highway_dict)
 # CONSTANTS
 PREY_SPEED = 0.75  # Average speed of the prey
-PREDATOR_SPEED = 0.23  # Average speed of the predator
+PREDATOR_SPEED = 0.23 #0.23  # Average speed of the predator
 
 
 
@@ -76,7 +85,7 @@ mouse_test_path = np.array([
     [0.465333, 0.0755239],
     [0.467372, 0.0756944],
     [0.47568, 0.0758724]])
-robot_test_location = world.cells[226].location
+robot_test_location = world.cells[262].location
 prey_position_window = mouse_test_path[0:10]
 prey_heading_vector = estimate_heading(prey_position_window)
 prey_smoothed_position = np.mean(prey_position_window, axis=0)
@@ -90,31 +99,53 @@ plt.plot(prey_position_window[:,0], prey_position_window[:,1], color = 'cyan', z
 
 
 # 1. check if mouse "on_highway"
-heading_vector = estimate_heading(prey_position_window)
-for highway, highway_name in zip(highway_list, highway_name_list):
-    close_and_heading, prey_closest_point_index = mouse_is_near_and_heading_towards_highway(
-        prey_smoothed_position, highway, heading_vector, cell_size * 3, np.pi / 4
-    )
-    if close_and_heading:
-        print(highway_name)
-        plt.scatter(highway[prey_closest_point_index][0], highway[prey_closest_point_index][1], color = 'blue', marker = 'h')
+prey_heading_vector = estimate_heading(prey_position_window)
+for highway_name, highway in highway_dict.items():
+    close_and_heading_bool, prey_closest_highway_point_index = mouse_is_near_and_heading_towards_highway(
+        prey_smoothed_position, highway, prey_heading_vector, cell_size * 3)
+    if close_and_heading_bool:
+        print(f"Mouse is on {highway_name} highway")
+        plt.scatter(highway[prey_closest_highway_point_index][0], highway[prey_closest_highway_point_index][1], color = 'blue', marker = 'h')
 
 # 2. find robot distance to intercept 1 point
-predator_closest_point_index, predator_min_distance = find_closest_point(np.array([robot_test_location.x, robot_test_location.y]), highway)
-robot_intercept_route = get_robot_interception_path(robot_test_location, highway[predator_closest_point_index], robot_world, path_object, robot_world_cells, robot_world_free_cells)  # robot_intercept_routeot path -tested
-robot_distance_to_intercept_point = distance_to_intercept_point(robot_intercept_route) # robot distance to intercept point -tested
-print(f"robot distance: {robot_distance_to_intercept_point}")
-plt.plot(robot_intercept_route[:,0], robot_intercept_route[:,1])
+robot_distance_to_highway_dict = {}         # index:distance
+robot_path_to_intercept_point_dict = {}     # index:path
+for i, highway_cell_id in enumerate(cell_highway_dict[highway_name]): # loop thorugh each cell id in highway
 
-# 3. find mouse distance to intercept point
-prey_distance_to_intercept_point = distance_to_intercept_point(highway, prey_closest_point_index, predator_closest_point_index)
-print(f"robot distance: {prey_distance_to_intercept_point}")
+    robot_path_to_intercept_point_dict[i] = get_robot_interception_path(robot_test_location, highway_cell_id, robot_world, path_object, robot_world_cells, robot_world_free_cells)
+    robot_distance_to_highway_dict[i] = distance_to_intercept_point(robot_path_to_intercept_point_dict[i]) # robot distance to intercept point -tested
+print(robot_distance_to_highway_dict)
+min_key, min_distance = min(robot_distance_to_highway_dict.items(), key=lambda x: x[1])
+print(f"The minimum distance is {min_distance}, corresponding to highway cell index {min_key}.")
+print(robot_distance_to_highway_dict[min_key])
+plt.plot(robot_path_to_intercept_point_dict[min_key][:,0], robot_path_to_intercept_point_dict[min_key][:,1])
+end_intercept_point = coarse_highway_dict[highway_name][min_key]
+plt.scatter(highway[end_intercept_point][0], highway[end_intercept_point][1], color = 'purple', marker = '*')
 
-# 4. check if intercept possible
-intercept_possible = calculate_intercept_time(prey_distance_to_intercept_point, robot_distance_to_intercept_point)
-print(intercept_possible)
+
+# # 3. find mouse distance to intercept point
+prey_distance_to_intercept_point = distance_to_intercept_point(route = highway, start_index = prey_closest_highway_point_index, end_index=end_intercept_point)
+print(f"prey distance: {prey_distance_to_intercept_point}")
+#
+# # 4. check if intercept possible
+intercept_possible = calculate_intercept_time(prey_distance_to_intercept_point, robot_distance_to_highway_dict[min_key], PREY_SPEED, PREDATOR_SPEED)
+print(f"Is the intercept possible?: {intercept_possible}")
 
 # if intercept not possible for intercept point 1 check the others
+for intercept_index, robot_distance in robot_distance_to_highway_dict.items():
+    if intercept_index > prey_closest_highway_point_index:   # check all potential intercept pint from where mouse starts
+        end_intercept_point = coarse_highway_dict[highway_name][intercept_index]
+        prey_distance_to_intercept_point = distance_to_intercept_point(route = highway, start_index = prey_closest_highway_point_index, end_index=end_intercept_point)
+        intercept_possible = calculate_intercept_time(prey_distance_to_intercept_point, robot_distance_to_highway_dict[intercept_index], PREY_SPEED, PREDATOR_SPEED)
+        if intercept_possible:
+            plt.scatter(highway[end_intercept_point][0], highway[end_intercept_point][1], color = 'cyan', marker = '*')
+            break
+if intercept_possible:
+    print("intercept_possible")
+else:
+    print('intercept not possible head to exit')
+
+
 
 running = True
 # prey_position_window = []

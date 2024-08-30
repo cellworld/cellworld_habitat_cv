@@ -127,10 +127,9 @@ def closest_open_cell(current_id: int, robot_world ,world_cells, world_free_cell
     return current_id
 
 
-def get_robot_interception_path(start_cell_location: cellworld.Location, end_cell_location: np.array, robot_world, path_object, robot_world_cells, robot_world_free_cells):
+def get_robot_interception_path(start_cell_location: cellworld.Location, end_cell_id: int, robot_world, path_object, robot_world_cells, robot_world_free_cells):
     start_cell_id = closest_open_cell(robot_world.cells.find(start_cell_location), robot_world, robot_world_cells, robot_world_free_cells)
-    end_cell_location = Location(end_cell_location[0], end_cell_location[1])
-    end_cell_id = closest_open_cell(robot_world.cells.find(end_cell_location), robot_world, robot_world_cells, robot_world_free_cells)
+    end_cell_id = closest_open_cell(end_cell_id, robot_world, robot_world_cells, robot_world_free_cells)
     return path_object.get_path(robot_world.cells[start_cell_id], robot_world.cells[end_cell_id]).get('location').to_numpy_array()
 
 def estimate_heading(position_window: np.array, num_points_avg=3) -> np.array:
@@ -187,7 +186,7 @@ def find_closest_point(current_location, route):
     # closest_point = route[min_index]
     return min_index, distances[min_index]
 
-def mouse_is_near_and_heading_towards_highway(mouse_position, highway_route, heading_vector, threshold_distance, angle_threshold) -> tuple:
+def mouse_is_near_and_heading_towards_highway(mouse_position, highway_route, heading_vector, threshold_distance, angle_threshold= np.pi / 4) -> tuple:
     """Check if mouse is near and heading towards a highway."""
     min_index, min_distance = find_closest_point(mouse_position, highway_route)
     is_close = min_distance < threshold_distance
@@ -207,4 +206,21 @@ def calculate_intercept_time(prey_distance: float, predator_distance: float, PRE
     print(f"Prey time to intercept: {prey_time}, Predator time to intercept: {predator_time}")
     return predator_time < prey_time
 
+def get_cell_route(route, world):
+    """Get more coarse highway of cell path for robot path planning"""
+    cell_route = []
+    for location in route:
+        location_cw = Location(location[0], location[1])
+        cell_id = world.cells.find(location_cw)
+        cell_route.append(cell_id)
+    return cell_route
 
+def get_potential_interecpt_point_highway_indices(cell_route, highway, world):
+    highway_indices = []
+    for id in cell_route:
+        coarse_location = world.cells[id].location
+        query_point = [coarse_location.x, coarse_location.y]
+        distances = np.linalg.norm(highway - query_point, axis=1)
+        min_index = np.argmin(distances)
+        highway_indices.append(min_index)
+    return highway_indices
