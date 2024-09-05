@@ -47,7 +47,7 @@ for i, (cell_id, search_cells) in enumerate(search_cell_dict.items()):
 # CONSTANTS
 PREY_SPEED = 0.75                       # Average speed of the prey
 PREDATOR_SPEED = 0.23                   # 0.23 Average moving speed of the predator
-PREY_OBSERVATION_BUFFER_LENGTH = 15
+PREY_OBSERVATION_BUFFER_LENGTH = 10
 
 # TIMER AND KILL SWITCH INIT
 controller_timer = Timer(5.0)
@@ -131,15 +131,14 @@ def on_episode_finished(m):
 def check_state(agent_position, agent_heading, size=cell_size):  # in file
     """ STEP 1. check if mouse is "on_highway" """
     for highway_name, highway in highway_dict.items():
+        print(f"Check {highway_name}")
         close_and_heading_bool, prey_closest_highway_point_index = mouse_is_near_and_heading_towards_highway(
             agent_position, highway, agent_heading, size * 3)
 
         if close_and_heading_bool:
             print(f"check_state: MOUSE IS ON {highway_name} HIGHWAY")
             prey_intercept_circle.set(center=(highway[prey_closest_highway_point_index][0],
-                                              highway[prey_closest_highway_point_index][1]))
-            plt.scatter(highway[prey_closest_highway_point_index][0],
-                        highway[prey_closest_highway_point_index][1], color='blue', marker='h')
+                                              highway[prey_closest_highway_point_index][1]), color='green')
 
             return close_and_heading_bool, prey_closest_highway_point_index, highway_name, highway
     # close_close_and_heading bool always false
@@ -175,7 +174,7 @@ def get_intercept_info(close_and_heading_bool, prey_closest_highway_point_index,
               f"predator distance: {min_distance}")
 
         if intercept_possible:
-            predator_intercept_circle.set(center = (highway[end_intercept_point][0], highway[end_intercept_point][1]))
+            predator_intercept_circle.set(center = (highway[end_intercept_point][0], highway[end_intercept_point][1]), color = 'blue')
             return ("INTERCEPT", close_and_heading_bool,
                     Location(highway[end_intercept_point][0], highway[end_intercept_point][1]),
                     highway_name, end_intercept_point)
@@ -193,12 +192,14 @@ def get_intercept_info(close_and_heading_bool, prey_closest_highway_point_index,
                     if intercept_possible:
                         print(f"Is intercept 2 possible?: {intercept_possible}")
                         predator_intercept_circle.set(center=(highway[end_intercept_point][0],
-                                                              highway[end_intercept_point][1]))
+                                                              highway[end_intercept_point][1]), color='blue')
                         return ("INTERCEPT", close_and_heading_bool,
                                 Location(highway[end_intercept_point][0], highway[end_intercept_point][1]),
                                 highway_name, end_intercept_point)
 
             print(f"Is intercept 2 possible?: {intercept_possible}")
+            predator_intercept_circle.set(center=(world.cells[326].location.x,
+                                                  world.cells[326].location.y), color='blue')
             return ("GOAL_INTERCEPT", close_and_heading_bool,
                     world.cells[326].location,
                     highway_name, cell_highway_set_dict[highway_name].shape[0])
@@ -340,6 +341,7 @@ prey_heading_vector = None
 prey_smoothed_position = None
 prey_observation_buffer_nparray = np.empty((0, 2))
 
+message_on = 1
 
 running = True
 while running:
@@ -379,6 +381,8 @@ while running:
                     current_closest_search_key = get_closest_search_key(predator.step.location, search_cell_dict, world)
                     destination_id = random.choice(search_cell_dict[current_closest_search_key])
                     current_predator_destination = world.cells[destination_id].location
+                    predator_intercept_circle.set(center=(0,0), color='blue')
+                    prey_intercept_circle.set(center=(0,0), color='green')
 
                 else:
                     current_predator_destination = intercept_location
@@ -403,7 +407,10 @@ while running:
                 destination_circle_color = 'red'
             else:
                 previous_highway_name = None
+                predator_intercept_circle.set(center=(0,0), color='blue')
+                prey_intercept_circle.set(center=(0,0), color='green')
                 print(f"highway traversed back to {predator_mode}")
+
 
         # need if here because chance function call above returns STEALTH_SEARCH
         if predator_mode == "STEALTH_SEARCH" and episode_in_progress:
@@ -416,7 +423,7 @@ while running:
 
     ########## SEND DESTINATION  ##########
     if current_predator_destination != previous_predator_destination and episode_in_progress:
-        print(f"SET NEW DESTINATION, {predator_mode}")
+        # print(f"SET NEW DESTINATION, {predator_mode}")
         controller.pause()
         destination_circle.set(center=(current_predator_destination.x, current_predator_destination.y), color=destination_circle_color)
         controller.set_destination(current_predator_destination)
@@ -432,9 +439,13 @@ while running:
 
     # take care of pausing during stealth search
     if predator_mode == "STEALTH_SEARCH" and prey.is_valid:
-        print(f"PREY SEEN IN STEALTH MODE, {predator_mode}")
+        if message_on:
+            print(f"PREY SEEN IN STEALTH MODE, {predator_mode}")
+            message_on = 0
         controller.pause()
     elif episode_in_progress:
+        if not message_on:
+            message_on = 1
         controller.resume()
 
 
