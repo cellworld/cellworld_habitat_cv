@@ -37,7 +37,7 @@ cell_highway_set_dict = {key: np.array([[world.cells[cell_id].location.x, world.
 coarse_highway_dict = {key: get_potential_intercept_point_highway_indices(cell_highway_dict[key], highway_dict[key], world) for key in highway_name_list} # TYPE = INDICES OF HIGHWAY; convert cell_highway to closest indices in highway
 assert len(highway_dict['north']) > len(cell_highway_set_dict['north'])
 
-search_cell_dict = {63: [89, 252], 89: [63, 236], 236: [89, 208], 208: [236, 63], 252: [63, 297], 297: [252, 236]}
+search_cell_dict = {63: [89, 252], 89: [63, 297], 236: [297, 208], 208: [236, 63], 252: [63, 297], 297: [252, 236]}
 search_cell_colors = plt.cm.get_cmap('tab10', len(search_cell_dict))
 for i, (cell_id, search_cells) in enumerate(search_cell_dict.items()):
     plt.scatter(world.cells[cell_id].location.x, world.cells[cell_id].location.y, color=search_cell_colors(i), marker = '*', alpha=0.5)

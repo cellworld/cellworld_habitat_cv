@@ -161,7 +161,7 @@ def project_points_onto_segments(mouse_position, highway_points):
 
 
 
-def is_heading_towards_highway(mouse_position, highway_points, heading_vector, angle_threshold=2 * np.pi): # TODO: change back to np.pi/4
+def is_heading_towards_highway(mouse_position, highway_points, heading_vector, angle_threshold=np.pi/4): # TODO: change back to np.pi/4
     """Check if the mouse is heading towards a highway."""
     projection_points, distances = project_points_onto_segments(mouse_position, highway_points)
     min_index = np.argmin(distances)
