@@ -131,7 +131,7 @@ int main(int argc, char **argv){
     robot::Robot_agent robot(limits, cv_server.reset_robot_connection);
 
     if (!p.contains(params_cpp::Key("-n"))) {
-        if (!robot.connect("192.168.137.155", 4500)){    // switch back   4500, 4501 (red)
+        if (!robot.connect("192.168.137.155", 4501)){    // switch back   4500, 4501 (red)
             cout << "Failed to connect to robot" << endl;
             //exit(1);
         }
