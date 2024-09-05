@@ -161,7 +161,7 @@ def project_points_onto_segments(mouse_position, highway_points):
 
 
 
-def is_heading_towards_highway(mouse_position, highway_points, heading_vector, angle_threshold=np.pi/4):
+def is_heading_towards_highway(mouse_position, highway_points, heading_vector, angle_threshold=2 * np.pi): # TODO: change back to np.pi/4
     """Check if the mouse is heading towards a highway."""
     projection_points, distances = project_points_onto_segments(mouse_position, highway_points)
     min_index = np.argmin(distances)
@@ -184,12 +184,12 @@ def find_closest_point(current_location, route):
     # closest_point = route[min_index]
     return min_index, distances[min_index]
 
-def mouse_is_near_and_heading_towards_highway(mouse_position, highway_route, heading_vector, threshold_distance, angle_threshold= np.pi / 4) -> tuple:
+def mouse_is_near_and_heading_towards_highway(mouse_position, highway_route, heading_vector, threshold_distance) -> tuple:
     """Check if mouse is near and heading towards a highway."""
     min_index, min_distance = find_closest_point(mouse_position, highway_route)
     is_close = min_distance < threshold_distance
     print(f"Distance Error: {min_distance}, Distance Passes: {is_close}")
-    heading_towards, closest_point = is_heading_towards_highway(mouse_position, highway_route, heading_vector, angle_threshold)
+    heading_towards, closest_point = is_heading_towards_highway(mouse_position, highway_route, heading_vector)
     return is_close and heading_towards, min_index
 
 
@@ -228,6 +228,7 @@ def get_potential_intercept_point_highway_indices(cell_route, highway, world):
 
 
 def backtrack_trajectory(current_index, steps_back, predator_mode):
+    print(f"current predator_mode_int {current_index}")
     # Ensure the step size does not go beyond the start of the trajectory
     target_index = current_index - steps_back
 

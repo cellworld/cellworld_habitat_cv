@@ -47,7 +47,7 @@ for i, (cell_id, search_cells) in enumerate(search_cell_dict.items()):
 # CONSTANTS
 PREY_SPEED = 0.75                       # Average speed of the prey
 PREDATOR_SPEED = 0.23                   # 0.23 Average moving speed of the predator
-PREY_OBSERVATION_BUFFER_LENGTH = 10
+PREY_OBSERVATION_BUFFER_LENGTH = 15
 
 # TIMER AND KILL SWITCH INIT
 controller_timer = Timer(5.0)
@@ -135,13 +135,15 @@ def check_state(agent_position, agent_heading, size=cell_size):  # in file
             agent_position, highway, agent_heading, size * 3)
 
         if close_and_heading_bool:
-            print(f"MOUSE IS ON {highway_name} HIGHWAY")
+            print(f"check_state: MOUSE IS ON {highway_name} HIGHWAY")
             prey_intercept_circle.set(center=(highway[prey_closest_highway_point_index][0],
                                               highway[prey_closest_highway_point_index][1]))
             plt.scatter(highway[prey_closest_highway_point_index][0],
                         highway[prey_closest_highway_point_index][1], color='blue', marker='h')
 
-    return close_and_heading_bool, prey_closest_highway_point_index, highway_name, highway
+            return close_and_heading_bool, prey_closest_highway_point_index, highway_name, highway
+    # close_close_and_heading bool always false
+    return close_and_heading_bool, None, None, None
 
 
 def get_intercept_info(close_and_heading_bool, prey_closest_highway_point_index, highway_name, highway):
@@ -151,7 +153,7 @@ def get_intercept_info(close_and_heading_bool, prey_closest_highway_point_index,
         robot_distance_to_highway_dict = {}         # index:distance
         robot_path_to_intercept_point_dict = {}     # index:path
         for i, highway_cell_id in enumerate(cell_highway_dict[highway_name]):
-            robot_path_to_intercept_point_dict[i] = get_robot_interception_path(robot_test_location, highway_cell_id,
+            robot_path_to_intercept_point_dict[i] = get_robot_interception_path(predator.step.location, highway_cell_id,
                                                                                 robot_world, path_object,
                                                                                 robot_world_cells,
                                                                                 robot_world_free_cells)
@@ -365,8 +367,9 @@ while running:
             # check if on highway
             close_and_heading_bool, prey_closest_highway_point_index, highway_name, highway = check_state(
                 prey_smoothed_position, prey_heading_vector)
+            print(f'previous highway {previous_highway_name}; highway name {highway_name}')
             # TODO: slight flaw what if mouse passes robot; robot should not keep heading down the highway; PLAY WITH DISTANCE PASSING CRITERIA FOR ON HIGHWAY
-            if highway_name != previous_highway_name or not close_and_heading_bool:
+            if (highway_name != previous_highway_name) or (not close_and_heading_bool):
                 predator_mode, close_and_heading_bool, intercept_location, highway_name, end_intercept_point = (
                     get_intercept_info(close_and_heading_bool, prey_closest_highway_point_index, highway_name, highway))
                 print(f"get_intercept_info, predator mode is: {predator_mode}, highway name: {highway_name}")
@@ -379,10 +382,11 @@ while running:
 
                 else:
                     current_predator_destination = intercept_location
-                    predator_mode_int = end_intercept_point
+                    predator_mode_int, _ = find_closest_point(np.array([intercept_location.x, intercept_location.y]),
+                                                              cell_highway_set_dict[highway_name])
 
-            # reset buffer and updator state variables
-            previous_highway_name = highway_name
+                previous_highway_name = highway_name
+
             prey_observation_buffer_nparray = np.empty((0, 2))
 
     ########## CHECK DESTINATION  REACHED ##########
@@ -393,12 +397,16 @@ while running:
 
         elif predator_mode != "STEALTH_SEARCH":
             predator_mode_int, predator_mode = backtrack_trajectory(predator_mode_int, 5, predator_mode)
-            x_predator, y_predator = cell_highway_set_dict[highway_name][predator_mode_int]
-            current_predator_destination = Location(x_predator, y_predator)
-            destination_circle_color = 'red'
+            if predator_mode != "STEALTH_SEARCH":
+                x_predator, y_predator = cell_highway_set_dict[highway_name][predator_mode_int]
+                current_predator_destination = Location(x_predator, y_predator)
+                destination_circle_color = 'red'
+            else:
+                previous_highway_name = None
+                print(f"highway traversed back to {predator_mode}")
 
         # need if here because chance function call above returns STEALTH_SEARCH
-        elif predator_mode == "STEALTH_SEARCH":
+        if predator_mode == "STEALTH_SEARCH" and episode_in_progress:
             # find nearest key
             current_closest_search_key = get_closest_search_key(predator.step.location, search_cell_dict, world)
             # select new destination
@@ -407,7 +415,7 @@ while running:
             destination_circle_color = 'cyan'
 
     ########## SEND DESTINATION  ##########
-    if current_predator_destination != previous_predator_destination:
+    if current_predator_destination != previous_predator_destination and episode_in_progress:
         print(f"SET NEW DESTINATION, {predator_mode}")
         controller.pause()
         destination_circle.set(center=(current_predator_destination.x, current_predator_destination.y), color=destination_circle_color)
