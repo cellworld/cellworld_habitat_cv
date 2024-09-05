@@ -97,13 +97,8 @@ def get_patrol_side_waypoint_old(value_to_find, mouse_side, patrol_path):
 
 
 # KEEPER INTERCEPT FUNCTIONS
-
-
-
-
-# INTERCEPT CALCULATION FUNCTIONS
 def distance_to_intercept_point(route: np.array, start_index: int = 0, end_index: int = -1) -> float:
-    """Calculate distance between two specified points on path."""
+    """Calculate distance between two specified points on a given path."""
     if end_index < 0:
         end_index = len(route) - 1
 
@@ -115,7 +110,8 @@ def distance_to_intercept_point(route: np.array, start_index: int = 0, end_index
         print("Start index greater than end index on route")
         return 0.0
 
-def closest_open_cell(current_id: int, robot_world ,world_cells, world_free_cells) -> int:
+
+def closest_open_cell(current_id: int, robot_world, world_cells, world_free_cells) -> int:
     """Find the closest open cell if the current cell is occluded."""
     if robot_world.cells[current_id].occluded:
         current_location = np.array([robot_world.cells[current_id].location.x, robot_world.cells[current_id].location.y])
@@ -128,6 +124,7 @@ def closest_open_cell(current_id: int, robot_world ,world_cells, world_free_cell
 
 
 def get_robot_interception_path(start_cell_location: cellworld.Location, end_cell_id: int, robot_world, path_object, robot_world_cells, robot_world_free_cells):
+    """Get robot path from a start cell to end cell"""
     start_cell_id = closest_open_cell(robot_world.cells.find(start_cell_location), robot_world, robot_world_cells, robot_world_free_cells)
     end_cell_id = closest_open_cell(end_cell_id, robot_world, robot_world_cells, robot_world_free_cells)
     return path_object.get_path(robot_world.cells[start_cell_id], robot_world.cells[end_cell_id]).get('location').to_numpy_array()
@@ -175,11 +172,12 @@ def is_heading_towards_highway(mouse_position, highway_points, heading_vector, a
 
     dot_product = np.dot(heading_vector, tangent_vector)
     angle = np.arccos(np.clip(dot_product, -1.0, 1.0))  # A * B = |A||B| cos(theta)
-    print(f"Mouse highway heading error: {to_degrees(angle)}, pass: {angle < angle_threshold}")
+    print(f"Heading Error: {to_degrees(angle)}, Heading Passes: {angle < angle_threshold}")
     return angle < angle_threshold, closest_point
 
 
 def find_closest_point(current_location, route):
+    """Find the closest point on route to the current location."""
     x, y = current_location[0], current_location[1]
     distances = np.sqrt((route[:, 0] - x) ** 2 + (route[:, 1] - y) ** 2)
     min_index = np.argmin(distances)
@@ -190,7 +188,7 @@ def mouse_is_near_and_heading_towards_highway(mouse_position, highway_route, hea
     """Check if mouse is near and heading towards a highway."""
     min_index, min_distance = find_closest_point(mouse_position, highway_route)
     is_close = min_distance < threshold_distance
-    print(f"Mouse distance to highway: {min_distance}, is close enough: {is_close}")
+    print(f"Distance Error: {min_distance}, Distance Passes: {is_close}")
     heading_towards, closest_point = is_heading_towards_highway(mouse_position, highway_route, heading_vector, angle_threshold)
     return is_close and heading_towards, min_index
 
@@ -203,8 +201,9 @@ def calculate_intercept_time(prey_distance: float, predator_distance: float, PRE
     prey_time = prey_distance / PREY_SPEED
     predator_time = predator_distance / PREDATOR_SPEED
 
-    print(f"Prey time to intercept: {prey_time}, Predator time to intercept: {predator_time}")
+    # print(f"Prey time to intercept: {prey_time}, Predator time to intercept: {predator_time}")
     return predator_time < prey_time
+
 
 def get_cell_route(route, world):
     """Get more coarse highway of cell path for robot path planning"""
@@ -215,7 +214,9 @@ def get_cell_route(route, world):
         cell_route.append(cell_id)
     return cell_route
 
-def get_potential_interecpt_point_highway_indices(cell_route, highway, world):
+
+def get_potential_intercept_point_highway_indices(cell_route, highway, world):
+    """ Translate cell route to highway indices """
     highway_indices = []
     for id in cell_route:
         coarse_location = world.cells[id].location
@@ -224,3 +225,31 @@ def get_potential_interecpt_point_highway_indices(cell_route, highway, world):
         min_index = np.argmin(distances)
         highway_indices.append(min_index)
     return highway_indices
+
+
+def backtrack_trajectory(current_index, steps_back, predator_mode):
+    # Ensure the step size does not go beyond the start of the trajectory
+    target_index = current_index - steps_back
+
+    if target_index < 5:
+        return -1, "STEALTH_SEARCH"
+
+    # Return the index of the target waypoint
+    return target_index, predator_mode
+
+
+def get_closest_search_key(predator_location, search_cell_dict, world):
+    closest_key = None
+    closest_key_dist = float('inf')  # Use infinity to ensure any distance is smaller
+    for key in search_cell_dict.keys():
+        key_dist = predator_location.dist(world.cells[key].location)
+        if key_dist < closest_key_dist:
+            closest_key_dist = key_dist
+            closest_key = key
+    return closest_key
+
+
+def remove_duplicates_preserve_order(lst):
+    """Remove duplicates from list while preserving order."""
+    seen = set()
+    return [x for x in lst if not (x in seen or seen.add(x))]
