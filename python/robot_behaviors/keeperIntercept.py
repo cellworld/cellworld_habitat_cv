@@ -37,7 +37,8 @@ cell_highway_set_dict = {key: np.array([[world.cells[cell_id].location.x, world.
 coarse_highway_dict = {key: get_potential_intercept_point_highway_indices(cell_highway_dict[key], highway_dict[key], world) for key in highway_name_list} # TYPE = INDICES OF HIGHWAY; convert cell_highway to closest indices in highway
 assert len(highway_dict['north']) > len(cell_highway_set_dict['north'])
 
-search_cell_dict = {63: [89, 252], 89: [63, 297], 236: [297, 208], 208: [236, 63], 252: [63, 297], 297: [252, 236]}
+# search_cell_dict = {63: [89, 252], 89: [63, 297], 236: [297, 208], 208: [236, 63], 252: [63, 297], 297: [252, 236]}
+search_cell_dict = {50: [89, 85], 85: [50, 294], 89: [50, 277], 294: [85, 277], 277: [290, 85], 290: [294, 85]}
 search_cell_colors = plt.cm.get_cmap('tab10', len(search_cell_dict))
 for i, (cell_id, search_cells) in enumerate(search_cell_dict.items()):
     plt.scatter(world.cells[cell_id].location.x, world.cells[cell_id].location.y, color=search_cell_colors(i), marker = '*', alpha=0.5)
@@ -47,7 +48,7 @@ for i, (cell_id, search_cells) in enumerate(search_cell_dict.items()):
 # CONSTANTS
 PREY_SPEED = 0.75                       # Average speed of the prey
 PREDATOR_SPEED = 0.23                   # 0.23 Average moving speed of the predator
-PREY_OBSERVATION_BUFFER_LENGTH = 10
+PREY_OBSERVATION_BUFFER_LENGTH = 2
 
 # TIMER AND KILL SWITCH INIT
 controller_timer = Timer(5.0)
@@ -112,6 +113,8 @@ def on_episode_started(parameters):
 def on_episode_finished(m):
     global episode_in_progress, current_predator_destination, episode_count, df, current_predator_heading, prey_entered_step
     print("EPISODE FINISHED")
+    predator_intercept_circle.set(center=(0,0), color='blue')
+    prey_intercept_circle.set(center=(0,0), color='green')
     controller.pause()
     episode_in_progress = False
 
@@ -120,11 +123,11 @@ def on_episode_finished(m):
     reset_globals()
 
     # send robot to new ambush cell
-    controller.resume()
     current_predator_destination = world.cells[search_cell_id].location
     controller.set_destination(current_predator_destination)     # set destination
     controller_timer.reset()                                                                # reset controller timer
     destination_circle.set(center=(current_predator_destination.x, current_predator_destination.y), color= 'magenta')
+    controller.resume()
 
 
 # KEEP INTERCEPT FUNCTIONS
@@ -180,24 +183,24 @@ def get_intercept_info(close_and_heading_bool, prey_closest_highway_point_index,
                     highway_name, end_intercept_point)
         else:
             """STEP 3. Check if intercept 2 possible"""
-            for intercept_index, robot_distance in robot_distance_to_highway_dict.items():
-                if intercept_index > prey_closest_highway_point_index:   # check all potential intercept points from where mouse starts
-                    end_intercept_point = coarse_highway_dict[highway_name][intercept_index]
-                    prey_distance_to_intercept_point = distance_to_intercept_point(route=highway,
-                                                                                   start_index=prey_closest_highway_point_index,
-                                                                                   end_index=end_intercept_point)
-                    intercept_possible = calculate_intercept_time(prey_distance_to_intercept_point,
-                                                                  robot_distance_to_highway_dict[intercept_index],
-                                                                  PREY_SPEED, PREDATOR_SPEED)
-                    if intercept_possible:
-                        print(f"Is intercept 2 possible?: {intercept_possible}")
-                        predator_intercept_circle.set(center=(highway[end_intercept_point][0],
-                                                              highway[end_intercept_point][1]), color='blue')
-                        return ("INTERCEPT", close_and_heading_bool,
-                                Location(highway[end_intercept_point][0], highway[end_intercept_point][1]),
-                                highway_name, end_intercept_point)
+            # for intercept_index, robot_distance in robot_distance_to_highway_dict.items():
+            #     if intercept_index > prey_closest_highway_point_index:   # check all potential intercept points from where mouse starts
+            #         end_intercept_point = coarse_highway_dict[highway_name][intercept_index]
+            #         prey_distance_to_intercept_point = distance_to_intercept_point(route=highway,
+            #                                                                        start_index=prey_closest_highway_point_index,
+            #                                                                        end_index=end_intercept_point)
+            #         intercept_possible = calculate_intercept_time(prey_distance_to_intercept_point,
+            #                                                       robot_distance_to_highway_dict[intercept_index],
+            #                                                       PREY_SPEED, PREDATOR_SPEED)
+            #         if intercept_possible:
+            #             print(f"Is intercept 2 possible?: {intercept_possible}")
+            #             predator_intercept_circle.set(center=(highway[end_intercept_point][0],
+            #                                                   highway[end_intercept_point][1]), color='blue')
+            #             return ("INTERCEPT", close_and_heading_bool,
+            #                     Location(highway[end_intercept_point][0], highway[end_intercept_point][1]),
+            #                     highway_name, end_intercept_point)
 
-            print(f"Is intercept 2 possible?: {intercept_possible}")
+            # print(f"Is intercept 2 possible?: {intercept_possible}")
             predator_intercept_circle.set(center=(world.cells[326].location.x,
                                                   world.cells[326].location.y), color='blue')
             return ("GOAL_INTERCEPT", close_and_heading_bool,
@@ -357,10 +360,12 @@ while running:
     if prey.is_valid and prey.step.location.dist(start_location) > cell_size * 3 and episode_in_progress:
         if prey_observation_buffer_nparray.shape[0] < PREY_OBSERVATION_BUFFER_LENGTH:
             prey_location_array = np.array([prey.step.location.x, prey.step.location.y])
-            prey_observation_buffer_nparray = np.concatenate((prey_observation_buffer_nparray, prey_location_array.reshape(1, -1)))
+            prey_observation_buffer_nparray = np.concatenate((prey_observation_buffer_nparray,
+                                                              prey_location_array.reshape(1, -1)))
         # OBSERVATION MADE
         if prey_observation_buffer_nparray.shape[0] == PREY_OBSERVATION_BUFFER_LENGTH:
             print("Prey Observation Made")
+            print(prey_observation_buffer_nparray)
 
             # compute position and heading
             prey_heading_vector = estimate_heading(prey_observation_buffer_nparray)
@@ -438,7 +443,7 @@ while running:
         controller_timer.reset()
 
     # take care of pausing during stealth search
-    if predator_mode == "STEALTH_SEARCH" and prey.is_valid:
+    if predator_mode == "STEALTH_SEARCH" and prey.is_valid and episode_in_progress:
         if message_on:
             print(f"PREY SEEN IN STEALTH MODE, {predator_mode}")
             message_on = 0
