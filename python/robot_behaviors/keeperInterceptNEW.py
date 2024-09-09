@@ -22,7 +22,13 @@ file_name = '/research/cellworld_habitat_cv/python/robot_behaviors/highways.pkl'
 with open(file_name, 'rb') as f:
     loaded_array = pickle.load(f)
 botEvade_north, botEvade_south, botEvade_middle = loaded_array[0], loaded_array[1], loaded_array[2]
+
+# fixing error
+last_element = botEvade_middle[-1]
+botEvade_middle = np.vstack([botEvade_middle, last_element]) # Get the last element
+
 highway_list = [botEvade_north, botEvade_south, botEvade_middle]
+print(len(botEvade_middle))
 highway_name_list = ['north', 'south', 'middle']
 highway_dict = {'north': botEvade_north, 'south': botEvade_south, 'middle': botEvade_middle}                                                       # TYPE = LOCATION TRAJECTORY; value: numpy array of highway streamlines
 cell_highway_dict = {'north': get_cell_route(botEvade_north, world), 'south': get_cell_route(botEvade_south, world), 'middle': get_cell_route(botEvade_middle, world)}    # TYPE = CELL_ID; value: list converting each streamline [x,y] to cell_id with repitition
@@ -40,7 +46,7 @@ for i, (cell_id, search_cells) in enumerate(search_cell_dict.items()):
 # CONSTANTS
 PREY_SPEED = 0.75                       # Average speed of the prey
 PREDATOR_SPEED = 0.23                   # 0.23 Average moving speed of the predator
-PREY_OBSERVATION_BUFFER_LENGTH = 5
+PREY_OBSERVATION_BUFFER_LENGTH = 4
 
 # TIMER AND KILL SWITCH INIT
 controller_timer = Timer(5.0)
@@ -350,7 +356,7 @@ while running:
         continue
 
     ############### PREY OBSERVATION #################
-    if prey.is_valid and prey.step.location.dist(start_location) > cell_size * 3 and episode_in_progress:
+    if prey.is_valid and prey.step.location.dist(start_location) > cell_size * 2 and episode_in_progress:
         if prey_observation_buffer_nparray.shape[0] < PREY_OBSERVATION_BUFFER_LENGTH:
             prey_location_array = np.array([prey.step.location.x, prey.step.location.y])
             prey_observation_buffer_nparray = np.concatenate((prey_observation_buffer_nparray,

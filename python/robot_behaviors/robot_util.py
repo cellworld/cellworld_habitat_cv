@@ -169,7 +169,7 @@ def is_heading_towards_highway(mouse_position, highway_points, heading_vector, a
     closest_point = projection_points[min_index]
 
     # Prevent out-of-range access by checking if min_index is the last point
-    if len(highway_points) < min_index + 2:
+    if len(highway_points) - 1 < min_index + 2:
         tangent_vector = highway_points[min_index] - highway_points[min_index - 2]  # Use the previous segment
     else:
         tangent_vector = highway_points[min_index + 2] - highway_points[min_index]  # Tangent vector of the closest segment
