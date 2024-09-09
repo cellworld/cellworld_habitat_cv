@@ -129,7 +129,8 @@ def get_robot_interception_path(start_cell_location: cellworld.Location, end_cel
     end_cell_id = closest_open_cell(end_cell_id, robot_world, robot_world_cells, robot_world_free_cells)
     return path_object.get_path(robot_world.cells[start_cell_id], robot_world.cells[end_cell_id]).get('location').to_numpy_array()
 
-def estimate_heading(position_window: np.array, num_points_avg=3) -> np.array:
+# TODO: heading window was too small thats why angle was 90
+def estimate_heading(position_window: np.array, num_points_avg=2) -> np.array:
     """Estimate heading direction using averaged start and end points."""
     if len(position_window) < 2 * num_points_avg:
         return np.array([0, 0])
@@ -161,13 +162,17 @@ def project_points_onto_segments(mouse_position, highway_points):
 
 
 
-def is_heading_towards_highway(mouse_position, highway_points, heading_vector, angle_threshold= 2 *np.pi ): # TODO: change back to np.pi/4
+def is_heading_towards_highway(mouse_position, highway_points, heading_vector, angle_threshold= np.pi/4 ): # TODO: change back to np.pi/4
     """Check if the mouse is heading towards a highway."""
     projection_points, distances = project_points_onto_segments(mouse_position, highway_points)
     min_index = np.argmin(distances)
     closest_point = projection_points[min_index]
 
-    tangent_vector = highway_points[min_index + 1] - highway_points[min_index]  # Tangent vector of the closest segment
+    # Prevent out-of-range access by checking if min_index is the last point
+    if len(highway_points) < min_index + 2:
+        tangent_vector = highway_points[min_index] - highway_points[min_index - 2]  # Use the previous segment
+    else:
+        tangent_vector = highway_points[min_index + 2] - highway_points[min_index]  # Tangent vector of the closest segment
     tangent_vector /= np.linalg.norm(tangent_vector)  # Normalize the tangent vector
 
     dot_product = np.dot(heading_vector, tangent_vector)
@@ -175,14 +180,16 @@ def is_heading_towards_highway(mouse_position, highway_points, heading_vector, a
     print(f"Heading Error: {to_degrees(angle)}, Heading Passes: {angle < angle_threshold}")
     return angle < angle_threshold, closest_point
 
-
+# TODO: modified this for speed check later
 def find_closest_point(current_location, route):
     """Find the closest point on route to the current location."""
-    x, y = current_location[0], current_location[1]
-    distances = np.sqrt((route[:, 0] - x) ** 2 + (route[:, 1] - y) ** 2)
-    min_index = np.argmin(distances)
+    x, y = current_location
+    dx = route[:, 0] - x
+    dy = route[:, 1] - y
+    distances_squared = dx ** 2 + dy ** 2
+    min_index = np.argmin(distances_squared)
     # closest_point = route[min_index]
-    return min_index, distances[min_index]
+    return min_index, np.sqrt(distances_squared[min_index])
 
 def mouse_is_near_and_heading_towards_highway(mouse_position, highway_route, heading_vector, threshold_distance) -> tuple:
     """Check if mouse is near and heading towards a highway."""
@@ -254,3 +261,8 @@ def remove_duplicates_preserve_order(lst):
     """Remove duplicates from list while preserving order."""
     seen = set()
     return [x for x in lst if not (x in seen or seen.add(x))]
+
+
+def clean_highway(full_highway, world):
+    cell_route = get_cell_route(full_highway, world)
+    return np.array([[world.cells[cell_id].location.x, world.cells[cell_id].location.y] for cell_id in remove_duplicates_preserve_order(cell_route)])
