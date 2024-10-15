@@ -54,7 +54,7 @@ namespace habitat_cv {
         cv::Point2f get_point(const cell_world::Location &) const;
         cell_world::Location get_location(const cv::Point2f &) const;
         std::vector<Marker> get_markers();
-        Image mask(const Binary_image &);
+        Image mask(const Binary_image &) const;
         Image clone() const;
         Image crop(const cell_world::Location &, const cv::MatSize &) const;
         Image crop(const cell_world::Location &, const cell_world::Location &) const;

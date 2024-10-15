@@ -24,6 +24,7 @@ namespace habitat_cv{
         void start_zoom(const cell_world::Location &);
         void start_composite (const Images &);
         Image &get_video();
+        Image &get_composite_small();
         Image &get_subtracted();
         Image &get_subtracted_small();
         Image &get_detection();
@@ -78,6 +79,7 @@ namespace habitat_cv{
         cv::Size composite_size; //composite size
         cv::Size crop_size; //composite size
         Image composite; // composite without mask
+        Image composite_small; // composite without mask
 
         Image composite_video; //composite with video mask
         float video_padding = .05;
@@ -113,6 +115,7 @@ namespace habitat_cv{
         cv::cuda::GpuMat gpu_zoom;
         cv::cuda::GpuMat gpu_background;
         cv::cuda::GpuMat gpu_composite;
+        cv::cuda::GpuMat gpu_composite_small;
         cv::cuda::GpuMat gpu_composite_subtracted;
         cv::cuda::GpuMat gpu_composite_subtracted_small;
         cv::cuda::GpuMat gpu_composite_detection;

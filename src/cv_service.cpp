@@ -134,25 +134,216 @@ namespace habitat_cv {
         return true;
     }
 
-    bool Cv_server::get_mouse_step(const Binary_image &diff, Step &step, const Location &robot_location, float scale) {
+    void update_old_steps(vector<cell_world::Step> &old_steps, vector<cell_world::Step> steps){
+        for (auto &old_step : old_steps){
+            for (auto &step: steps){
+                if (step.agent_name==old_step.agent_name){
+                    old_step.location = step.location;
+                    step.agent_name = "";
+                    break;
+                }
+            }
+        }
+        for (auto &step: steps) {
+            if(!step.agent_name.empty()){
+                old_steps.push_back(step);
+            }
+        }
+    }
+
+    float dist3(Location l1, Location l2, int a1, int a2){
+        float ad = (a1+a2);
+        float an = abs(a2-a1);
+        float a = an / ad;
+        return l1.dist(l2) * (1 + 5 * a);
+    }
+
+    void get_steps(json_cpp::Json_vector<cell_world::Step> &steps, json_cpp::Json_vector<cell_world::Step> &old_steps, vector<Detection> &mouse_detections){
+        static int detection_count = 0;
+        steps.clear();
+        if (old_steps.empty()){
+            for (size_t i = 0; i < mouse_detections.size(); i++) {
+                Step mouse_step;
+                mouse_step.time_stamp = 0;
+                mouse_step.frame = 0;
+                mouse_step.agent_name = "mouse_" + to_string(detection_count);
+                mouse_step.location = mouse_detections[i].location;
+                mouse_step.data = to_string(mouse_detections[i].area);
+                mouse_step.rotation = 0;
+                steps.push_back(mouse_step);
+                detection_count ++;
+            }
+            return;
+        }
+        if (old_steps.size() == 1 && mouse_detections.size() == 1){
+            auto mouse_step = old_steps[0];
+            mouse_step.location = mouse_detections[0].location;
+            mouse_step.data = to_string(mouse_detections[0].area);
+            steps.push_back(mouse_step);
+            return;
+        }
+        if (old_steps.size() == 2 && mouse_detections.size() == 1){
+            auto d0=old_steps[0].location.dist(mouse_detections[0].location);
+            auto d1=old_steps[1].location.dist(mouse_detections[0].location);
+            if (d0<d1) {
+                auto mouse_step = old_steps[0];
+                mouse_step.location = mouse_detections[0].location;
+                mouse_step.data = to_string(mouse_detections[0].area);
+                steps.push_back(mouse_step);
+            } else {
+                auto mouse_step = old_steps[1];
+                mouse_step.location = mouse_detections[0].location;
+                mouse_step.data = to_string(mouse_detections[0].area);
+                steps.push_back(mouse_step);
+            }
+            return;
+        }
+        if (old_steps.size() == 1 && mouse_detections.size() == 2) {
+            auto d0 = old_steps[0].location.dist(mouse_detections[0].location);
+            auto d1 = old_steps[0].location.dist(mouse_detections[1].location);
+            auto mouse_step0 = old_steps[0];
+            Step mouse_step1;
+            mouse_step1.time_stamp = 0;
+            mouse_step1.frame = 0;
+            mouse_step1.agent_name = "mouse_" + to_string(detection_count);
+            mouse_step1.rotation = 0;
+            if (d0<d1) {
+                mouse_step0.location = mouse_detections[0].location;
+                mouse_step0.data = to_string(mouse_detections[0].area);
+                steps.push_back(mouse_step0);
+                mouse_step1.location = mouse_detections[1].location;
+                mouse_step1.data = to_string(mouse_detections[1].area);
+                steps.push_back(mouse_step1);
+            } else {
+                mouse_step0.location = mouse_detections[1].location;
+                mouse_step0.data = to_string(mouse_detections[1].area);
+                steps.push_back(mouse_step0);
+                mouse_step1.location = mouse_detections[0].location;
+                mouse_step1.data = to_string(mouse_detections[0].area);
+                steps.push_back(mouse_step1);
+            }
+            return;
+        }
+        if (old_steps.size() == 2 && mouse_detections.size() == 2) {
+            int a0 = stoi(old_steps[0].data);
+            int a1 = stoi(old_steps[1].data);
+//            auto d0 = old_steps[0].location.dist(mouse_detections[0].location) +  old_steps[1].location.dist(mouse_detections[1].location);
+//            auto d1 = old_steps[1].location.dist(mouse_detections[0].location) +  old_steps[0].location.dist(mouse_detections[1].location);
+            auto d0 = dist3(old_steps[0].location,mouse_detections[0].location,a0, mouse_detections[0].area) + dist3(old_steps[1].location,mouse_detections[1].location,a0, mouse_detections[1].area);
+            auto d1 = dist3(old_steps[1].location,mouse_detections[0].location,a0, mouse_detections[0].area) + dist3(old_steps[0].location,mouse_detections[1].location,a0, mouse_detections[1].area);
+            if (d0 < d1) {
+                auto mouse_step0 = old_steps[0];
+                mouse_step0.location = mouse_detections[0].location;
+                mouse_step0.data = to_string(mouse_detections[0].area);
+                steps.push_back(mouse_step0);
+                auto mouse_step1 = old_steps[1];
+                mouse_step1.location = mouse_detections[1].location;
+                mouse_step1.data = to_string(mouse_detections[1].area);
+                steps.push_back(mouse_step1);
+            } else {
+                auto mouse_step0 = old_steps[0];
+                mouse_step0.location = mouse_detections[1].location;
+                mouse_step0.data = to_string(mouse_detections[1].area);
+                steps.push_back(mouse_step0);
+                auto mouse_step1 = old_steps[1];
+                mouse_step1.location = mouse_detections[0].location;
+                mouse_step1.data = to_string(mouse_detections[0].area);
+                steps.push_back(mouse_step1);
+            }
+            return;
+        }
+
+    }
+
+    bool Cv_server::get_mouse_step(Binary_image &diff, const Image &composite_small, json_cpp::Json_vector<cell_world::Step> &steps, json_cpp::Json_vector<cell_world::Step> &old_steps, vector<Detection> &mouse_detections, const Location &robot_location, float scale) {
+        static int detection_count = 0;
         //PERF_START("MOUSE_DETECTIONS");
+        auto shave_profile = Profile();
+        shave_profile.area_lower_bound = 10;
+        shave_profile.area_upper_bound = 100;
         auto detections = Detection_list::get_detections(diff).scale(scale);
         //PERF_STOP("MOUSE_DETECTIONS");
         //PERF_START("MOUSE_FILTER");
         auto mouse_candidates = detections.filter(mouse_profile);
+
+
         //PERF_STOP("MOUSE_FILTER");
         //PERF_SCOPE("MOUSE_REST");
-        for (auto &mouse: mouse_candidates) {
-            if (mouse.location.dist(robot_location) < SAFETY_MARGIN) continue;
-            step.agent_name = "prey";
-            step.location = mouse.location;
-            return true;
+        steps.clear();
+        auto previous_detections = mouse_detections;
+        mouse_detections.clear();
+        for (auto &mouse_candidate: mouse_candidates) {
+            if (mouse_candidate.location.dist(robot_location) < SAFETY_MARGIN) continue;
+            mouse_detections.push_back(mouse_candidate);
         }
-        return false;
+        get_steps(steps, old_steps, mouse_detections);
+
+//        for (int prev_step_index = 0;  prev_step_index < old_steps.size(); prev_step_index++) {
+//            auto &prev_step = old_steps[prev_step_index];
+//            int detection_number = Not_found;
+//            float mind = INFINITY;
+//            for (int i = 0; i < mouse_detections.size(); i++) {
+//                auto d = mouse_detections[i].location.dist(prev_step.location);
+////                if (d > 20) continue;
+//                if (d < mind) {
+//                    mind = d;
+//                    detection_number = i;
+//                }
+//            }
+//            if (detection_number != Not_found) {
+//                for (int other_prev_step_index = prev_step_index + 1;  other_prev_step_index < old_steps.size(); other_prev_step_index++) {
+//                    auto &other_prev_step = old_steps[other_prev_step_index];
+//                    if (other_prev_step.location.dist(mouse_detections[detection_number].location) < mind) {
+//                        detection_number = Not_found;
+//                    }
+//                }
+//            }
+//            if (detection_number != Not_found) {
+//                auto &new_step = steps.emplace_back(prev_step);
+//                new_step.location = mouse_detections[detection_number].location;
+//                mouse_detections.erase(mouse_detections.begin() + detection_number);
+//            }
+//        }
+//        for (size_t i = 0; i < mouse_detections.size(); i++) {
+//            Step mouse_step;
+//            mouse_step.time_stamp = 0;
+//            mouse_step.frame = 0;
+//            mouse_step.agent_name = "mouse_" + to_string(detection_count);
+//            mouse_step.location = mouse_detections[i].location;
+//            mouse_step.rotation = 0;
+//            steps.push_back(mouse_step);
+//            detection_count++;
+//        }
+        update_old_steps(old_steps, steps);
+        return steps.size();
     }
 
-    bool Cv_server::get_robot_step(const Binary_image &image, Step &step, float scale) {
+    bool Cv_server::get_robot_step(const Binary_image &image, Step &step, float scale, Location &mouse_head) {
         auto leds = Detection_list::get_detections(image).scale(scale).filter(led_profile);
+
+        mouse_head = NOLOCATION;
+// BEGIN: Experimental added for ir head emitter
+        if (leds.size() == 4) {
+            auto centroid = Location();
+            for (auto &led: leds){
+                centroid += led.location;
+            }
+            centroid = centroid / 4;
+            auto farthest = 0;
+            auto max_d = leds[farthest].location.dist(centroid);
+            mouse_head = leds[0].location;
+            for (unsigned int i=1; i<4; i++){
+                auto d = leds[i].location.dist(centroid);
+                if (d > max_d) {
+                    max_d = d;
+                    farthest = i;
+                    mouse_head = leds[i].location;
+                }
+            }
+            leds.erase(leds.begin()+farthest);
+        }
+// END
+
         if (leds.size() != 3) {
             return false;
         }
@@ -194,8 +385,8 @@ namespace habitat_cv {
         cam2,
         cam3,
         sync_led,
+        mouse_composite_masked,
         led,
-
     };
 
     void Cv_server::tracking_process() {
@@ -204,7 +395,7 @@ namespace habitat_cv {
         Profile sync_led;
         sync_led.area_upper_bound=1000;
         sync_led.area_lower_bound=15;
-
+        float mouse_head_max_distance = cv_implementation.cell_transformation.size;
         unsigned int parallel_threads = 2;
         vector<Composite> composites;
         vector<thread> composite_threads;
@@ -238,8 +429,9 @@ namespace habitat_cv {
         tracking_running = true;
         bool show_markers = false;
         puff_state = false;
-        Step mouse;
-        mouse.location = NOLOCATION;
+        json_cpp::Json_vector<Step> mice_steps;
+        json_cpp::Json_vector<Step> old_mice_steps;
+        vector<Detection> mice_detections;
         Step robot;
         robot.location = NOLOCATION;
         int robot_counter = 0;
@@ -262,7 +454,7 @@ namespace habitat_cv {
         Location_list occlusions_locations;
         Location entrance_location = cv_space.transform( ENTRANCE, canonical_space);
         entrance_location.x += composites[0].padding;
-        float entrance_distance = cv_implementation.cell_transformation.size / 2;
+        float entrance_distance = cv_implementation.cell_transformation.size;
         bool show_robot_destination = false;
         unsigned int prey_entered_arena_indicator = 0;
         vector<int> frozen_camera_counters(4, 0);
@@ -289,11 +481,12 @@ namespace habitat_cv {
             ////PERF_START("COLOR CONVERSION");
             ////PERF_STOP("COLOR CONVERSION");
             ////PERF_START("ROBOT DETECTION");
+            Location mouse_head;
             if (robot_camera == -1 || !composite.is_transitioning(robot.location)) {
-                robot_detected = get_robot_step(composite.get_detection_threshold(robot_threshold), robot, composite.detection_scale);
+                robot_detected = get_robot_step(composite.get_detection_threshold(robot_threshold), robot, composite.detection_scale, mouse_head);
                 if (robot_detected) robot_camera = composite.get_best_camera(robot.location);
             } else {
-                robot_detected = get_robot_step(composite.get_detection_threshold(robot_threshold, robot_camera), robot, composite.detection_scale);
+                robot_detected = get_robot_step(composite.get_detection_threshold(robot_threshold, robot_camera), robot, composite.detection_scale, mouse_head);
             }
             if (robot_detected) {
                 auto perspective_adjustment = composite.get_perspective_correction(robot.location, robot_height, robot_camera);
@@ -306,23 +499,30 @@ namespace habitat_cv {
             //PERF_STOP("ROBOT DETECTION");
             //PERF_START("MOUSE DETECTION");
             //PERF_START("MOUSE_STEP");
-            mouse_detected = get_mouse_step(composite.get_subtracted_threshold(mouse_threshold), mouse, robot.location, composite.detection_scale);
+            auto mouse_mask = composite.get_subtracted_threshold(mouse_threshold);
+            auto mouse_composite_masked = composite.get_composite_small();
+            mouse_detected = get_mouse_step(mouse_mask, mouse_composite_masked, mice_steps, old_mice_steps, mice_detections, robot.location, composite.detection_scale);
             if (mouse_detected) {
                 //PERF_START("MOUSE_DETECTED");
-                if (waiting_for_prey && mouse.location.dist(entrance_location) > entrance_distance) {
-                    waiting_for_prey = false;
-                    experiment_client.prey_enter_arena();
-                    prey_entered_arena_indicator = 100;
+                for (auto &mouse: mice_steps) {
+                    if (waiting_for_prey && mouse.location.dist(entrance_location) > entrance_distance) {
+                        waiting_for_prey = false;
+                        experiment_client.prey_enter_arena();
+                        prey_entered_arena_indicator = 100;
+                        break;
+                    }
                 }
                 //PERF_STOP("MOUSE_DETECTED");
             }
             //PERF_STOP("MOUSE_STEP");
             //PERF_STOP("MOUSE DETECTION");
             //PERF_START("ZOOM");
-            if (mouse.location != NOLOCATION) {
-                composite.start_zoom(mouse.location);
-            } else {
-                composite.get_zoom().setTo(0);
+            if (!mice_steps.empty()) {
+                if (mice_steps[0].location != NOLOCATION) {
+                    composite.start_zoom(mice_steps[0].location);
+                } else {
+                    composite.get_zoom().setTo(0);
+                }
             }
             //PERF_STOP("ZOOM");
             //PERF_START("DETECTION_PROCESSING");
@@ -367,8 +567,14 @@ namespace habitat_cv {
             }
             //PERF_STOP("SCREEN_ROBOT");
             //PERF_START("SCREEN_MOUSE");
-            if (mouse_detected) {
-                composite.get_video().circle(mouse.location, 5, mouse_color, true);
+            for (auto &mouse: mice_steps) {
+                if (mouse_detected) {
+                    if (mouse.location != NOLOCATION) {
+                        composite.get_video().circle(mouse.location, 5, mouse_color, true);
+                        composite.get_video().text(mouse.location,mouse.agent_name,mouse_color,1,0,2);
+                        composite.get_video().text(mouse.location,mouse.data,mouse_color,1,0,0);
+                    }
+                }
             }
             //PERF_STOP("SCREEN_MOUSE");
             //PERF_START("SCREEN_MARKERS");
@@ -394,12 +600,12 @@ namespace habitat_cv {
             if (robot_detected || mouse_detected) {
                 thread([this, &composite, &message_mtx](
                         bool robot_detected,
-                        bool mouse_detected,
                         Step robot,
-                        Step mouse,
+                        vector<Step> mice_steps,
                         float time_stamp,
                         unsigned int frame_number,
-                        Tracking_server &tracking_server ) {
+                        Tracking_server &tracking_server,
+                        Location mouse_head) {
                     message_mtx.lock();
                     if (robot_detected) {
                         Predator_data predator_data;
@@ -413,22 +619,25 @@ namespace habitat_cv {
                         auto step = robot.convert(cv_space, canonical_space);
                         tracking_server.send_step(step);
                     }
-                    if (mouse_detected) {
-                       mouse.time_stamp = time_stamp;
-                       mouse.frame = frame_number;
-                       mouse.rotation = 0;
-                       mouse.location.x -= composite.padding;
-                       tracking_server.send_step(mouse.convert(cv_space, canonical_space));
+                    for (auto &mouse:mice_steps) {
+                        if (mouse.location != NOLOCATION) {
+                            mouse.time_stamp = time_stamp;
+                            mouse.frame = frame_number;
+                            mouse.rotation = 0;
+                            mouse.location.x -= composite.padding;
+                            mouse.data = mouse_head.to_json();
+                            tracking_server.send_step(mouse.convert(cv_space, canonical_space));
+                        }
                     }
                     message_mtx.unlock();
                 },
                        robot_detected,
-                       mouse_detected,
                        robot,
-                       mouse,
+                       mice_steps,
                        time_stamp,
                        frame_number,
-                       reference_wrapper(tracking_server) ).detach();
+                       reference_wrapper(tracking_server),
+                       mouse_head).detach();
             }
             //PERF_STOP("MESSAGE");
             //PERF_STOP("DETECTION_PROCESSING");
@@ -494,11 +703,8 @@ namespace habitat_cv {
             //PERF_START("SHOW");
             if (main_video.is_open()) {
                 screen_frame.circle({15, 15}, 10, {0, 0, 255}, true);
-                if (mouse.location == NOLOCATION) {
-                    screen_frame.circle({15, 15}, 5, {0, 0, 0}, true);
-                }
             }
-            for (int l=0;l<4;l++){
+            for (int l=0; l<4 ;l++){
                 if (leds[l]) {
                     screen_frame.circle({55 + (float)l * 15, 15}, 5, {0, 255, 0}, true);
                 }
@@ -573,8 +779,9 @@ namespace habitat_cv {
                     }
                     case 'V':
                         // start video recording
-                        if (main_video.is_open() && mouse.location==NOLOCATION){
-                            mouse.location = Location(0, 0);
+                        if (main_video.is_open() && mice_steps.empty()){
+//                            mouse.location = Location(0, 0);
+
                         } else {
                             main_layout.new_episode("","",0,"");
                             main_video.new_video("main");
@@ -656,6 +863,7 @@ namespace habitat_cv {
                         cv::imwrite(file_name + "_composite.png", composite.get_composite());
                         cv::imwrite(file_name + "_darken.png", (composite.get_composite().to_gray() - 140)*(255/(255-140)));
                         cv::imwrite(file_name + "_robot.png", composite.get_composite().to_gray().threshold(robot_threshold));
+                        cv::imwrite(file_name + "_detection_mask.png", composite.mask_detection);
 
                         cv::imwrite(file_name + "_raw.png", composite.get_raw_composite());
                         cv::imwrite(file_name + "_subtracted.png", composite.get_subtracted());
@@ -693,7 +901,7 @@ namespace habitat_cv {
             }
             fr.new_frame();
             //PERF_START("VIDEO");
-            if (main_video.is_open() && mouse.location != NOLOCATION) { // starts recording when mouse crosses the door
+            if (main_video.is_open() && !old_mice_steps.empty()) { // starts recording when mouse crosses the door
                 while(!video_mutex.try_lock()) this_thread::sleep_for(10us);
                 if (main_video.is_open()) {
                     sync_log.sync_event(frame_number,time_stamp, leds);
@@ -710,8 +918,6 @@ namespace habitat_cv {
                     }, frame_number).detach();
                     frame_number++;
                 }
-            } else {
-                mouse.location = NOLOCATION;
             }
             //PERF_STOP("VIDEO");
         }

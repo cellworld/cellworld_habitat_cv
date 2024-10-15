@@ -164,7 +164,7 @@ namespace habitat_cv{
         return {subtracted, ""};
     }
 
-    Image Image::mask(const Binary_image &mask) {
+    Image Image::mask(const Binary_image &mask) const {
         Image new_image;
         new_image.type = type;
         cv::bitwise_and(*this,mask,new_image);
