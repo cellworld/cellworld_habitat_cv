@@ -10,6 +10,7 @@ from json_cpp import JsonList
 
 display = None
 episode_in_progress = False
+capture_state = False
 experiment_log_folder = "/research/data"
 current_experiment_name = ""
 
@@ -49,6 +50,7 @@ def get_episode_folder (experiment_name, episode_number):
 def get_episode_file (experiment_name, episode_number):
     return get_episode_folder(experiment_name, episode_number) + f"/{experiment_name}_episode_{episode_number:03}.json"
 
+
 def go_to_start_location():
     global current_predator_destination, destination_circle
     controller.resume()
@@ -72,47 +74,25 @@ def on_experiment_started(experiment):
 
 
 def on_episode_finished(m):
+    global episode_in_progress, capture_state
     print("EPISODE FINISHED")
-    global episode_in_progress, current_predator_destination, inertia_buffer, display
-    experiment_state = experiment_service.get_experiment(current_experiment_name)
-    last_episode_file = get_episode_file(current_experiment_name, experiment_state.episode_count-1)
-    last_trajectory = Episode.load_from_file(last_episode_file).trajectories.get_agent_trajectory("prey")
-    for step in last_trajectory:
-        cell_index = possible_destinations.find(step.location)
-        possible_destinations_weights[cell_index] = min(possible_destinations_weights[cell_index] + pheromone_charge, pheromone_max)
-        for index, pd in enumerate(spawn_locations):
-            if pd.id == possible_destinations[cell_index].id:
-                spawn_locations_weights[index] = possible_destinations_weights[cell_index]
-
-    cmap = plt.cm.Reds([w / max(possible_destinations_weights) for w in possible_destinations_weights])
-
-    print(spawn_locations_weights)
-    for i, sl in enumerate(possible_destinations):
-        if is_spawn[i]:
-            display.cell(cell=sl, color=cmap[i], edge_color="blue")
-        else:
-            display.cell(cell=sl, color=cmap[i])
-
-    controller.resume()
-    controller.set_behavior(0)
-    inertia_buffer = 1
-    episode_in_progress = False
-    current_predator_destination = choices(spawn_locations, weights=spawn_locations_weights)[0].location
+    current_predator_destination = hidden_location()
     controller.set_destination(current_predator_destination)     # set destination
-    if controller_timer != 1: # no idea why the timer would be an integer but whatevs
-        controller_timer.reset()                                     # reset controller timer
     destination_circle.set(center = (current_predator_destination.x, current_predator_destination.y), color = spawn_color)
+    episode_in_progress = False
+    capture_state = False
 
 
-def on_capture( frame:int ):
-    global inertia_buffer
+def on_capture(frame:int):
+    global inertia_buffer, capture_state
+    capture_state = True
     controller.set_behavior(0)
     inertia_buffer = 1
     print ("PREY CAPTURED")
 
 
 def on_episode_started(parameters):
-    global episode_in_progress, current_experiment_name
+    global episode_in_progress, current_experiment_name, current_predator_destination
     current_experiment_name = parameters.experiment_name
     print("New Episode: ", parameters.experiment_name)
     print("Occlusions: ", experiments[parameters.experiment_name].world.occlusions)
@@ -120,8 +100,10 @@ def on_episode_started(parameters):
 
 def on_prey_entered_arena():
     print("Prey Entered")
-    global episode_in_progress, controller_timer
+    global episode_in_progress, controller_timer, capture_state
+    controller.arm()
     episode_in_progress = True
+    capture_state = False
     controller_timer = Timer(5.0)
 
 
@@ -177,7 +159,7 @@ def on_step(step: Step):
     else:
         prey.is_valid = Timer(time_out) # pursue when prey is seen
         prey.step = step
-        controller.set_behavior(ControllerClient.Behavior.Pursue)
+        # controller.set_behavior(ControllerClient.Behavior.Pursue)
 
 
 def on_click(event):
@@ -241,11 +223,17 @@ def on_keypress(event):
         controller.set_destination(current_predator_destination)
         destination_circle.set(center = (current_predator_destination.x, current_predator_destination.y), color = explore_color)
 
+random_spawn = False
+if len(sys.argv) == 2:
+    occlusions = sys.argv[1]
+elif len(sys.argv) == 3:
+    random_spawn = sys.argv[2]
+else:
+    print('Needs 1 or 2 arguments')
 
-
-occlusions = sys.argv[1]
 inertia_buffer = 1
 time_out = 1.0      # step timer for predator and preyQ
+NOLOCATION = Location(-1000, -1000)
 
 robot_visibility = None
 controller_state = 1 # resume = 1, pause = 0
@@ -279,7 +267,7 @@ experiments = {}
 
 
 # CONNECT TO CONTROLLER
-controller_timer = 1     # initialize controller timer variable
+controller_timer = Timer(5.0)    # initialize controller timer variable
 controller = ControllerClient()
 if not controller.connect("127.0.0.1", 4590):
     print("failed to connect to the controller")
@@ -307,47 +295,19 @@ destination_circle = display.circle(predator.step.location, 0.01, explore_color)
 
 running = True
 while running:
-# add inertia buffer logic
-    # check predator distance from destination and send new on if reached
+
     if current_predator_destination.dist(predator.step.location) < (cell_size * inertia_buffer):
-
-        controller.pause()                  # prevents overshoot - stop robot once close enough to destination
-        controller.set_behavior(0)
-        inertia_buffer = 1
-        if controller_timer != 1:
-            if episode_in_progress:
-                current_predator_destination = hidden_location()             # assign new destination
-                controller.set_destination(current_predator_destination)     # set destination
-                controller_timer.reset()                                     # reset controller timer
-                destination_circle.set(center = (current_predator_destination.x, current_predator_destination.y), color = explore_color)
-                controller.resume()                                          # Resume controller (unpause)
-        else:
-            current_predator_destination = predator.step.location  # assign destination to current predator location (artificially reach goal when "close enough")
-
-    # check for controller timeout and resend current destination
-    if not controller_timer:
+        controller.pause()
+        current_predator_destination = predator.step.location  # assign destination to current predator location (artificially reach goal when "close enough")
+    elif not controller_timer:
         controller.set_destination(current_predator_destination)  # resend destination
         controller_timer.reset()
-
-
-    # check if prey was seen
-    if prey.is_valid:
-        print(controller_state, episode_in_progress)
-
-    if prey.is_valid and controller_state and episode_in_progress: # controller state allows pause to overrule pursue
-        print("PURSUE MODE")
+    elif capture_state & episode_in_progress:
+        current_predator_destination = NOLOCATION
         controller.pause()
-        controller.set_behavior(1)
-        inertia_buffer = 2
-        current_predator_destination = prey.step.location
-        controller.set_destination(current_predator_destination)      # if prey is visible set new destination to prey location
-        destination_circle.set(center = (prey.step.location.x, prey.step.location.y), color = pursue_color)
-
-        print(prey.step.location, predator.step.location)
-        controller.resume()
+        controller.set_behavior(0)
+        controller.set_destination(current_predator_destination)
         controller_timer.reset()
-
-        # could add prey timer reset in this if statement, and only send new prey destination if it is timed out
 
     # plotting the current location of the predator and prey
     if prey.is_valid:
@@ -357,7 +317,10 @@ while running:
         display.agent(step=prey.step, color="gray", size=10)
 
     if predator.is_valid:
-        display.agent(step=predator.step, color="blue", size=10)
+        if capture_state:
+            display.agent(step=predator.step, color="red", size=10)
+        else:
+            display.agent(step=predator.step, color="blue", size=10)
 
     else:
         display.agent(step=predator.step, color="gray", size=10)
