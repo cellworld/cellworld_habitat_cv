@@ -40,17 +40,18 @@ int main(int argc, char **argv){
     controller::Agent_operational_limits limits;
     limits.load("../config/robot_operational_limits.json"); // robot, ghost
 
-    bool fake_robot = p.contains(params_cpp::Key("-fr"));
-
     auto hab_config = p.get(params_cpp::Key("-hc", "--habitat_configuration"), "");
 
+    auto robot_ip = p.get(params_cpp::Key("-ri", "--robot_ip"), "192.168.137.155");
+    auto robot_port = stoi(p.get(params_cpp::Key("-rp", "--robot_port"), "4500"));
     auto occlusions_str = p.get(params_cpp::Key("-w", "--world"),"21_05");
+    auto manually_armed = p.contains(params_cpp::Key("-m", "--manually_armed"));
     auto configuration = Resources::from("world_configuration").key("hexagonal").get_resource<World_configuration>();
     auto implementation = Resources::from("world_implementation").key("hexagonal").key("canonical").get_resource<World_implementation>(); // mice, vr, canonical
     auto occlusions = Resources::from("cell_group").key("hexagonal").key(occlusions_str).key("occlusions").get_resource<Cell_group_builder>();
-    auto capture_parameters = Resources::from("capture_parameters").key("default").get_resource<Capture_parameters>();
-    auto peeking_parameters = Resources::from("peeking_parameters").key("default").get_resource<Peeking_parameters>();
-
+    auto capture_parameters = Resources::from("capture_parameters").key(p.get(params_cpp::Key("-cp", "--capture-parameters"), "default")).get_resource<Capture_parameters>();
+    auto peeking_parameters = Resources::from("peeking_parameters").key(p.get(params_cpp::Key("-pp", "--peeking-parameters"), "default")).get_resource<Peeking_parameters>();
+    auto raw_video_frame_rate = stoi(p.get(params_cpp::Key("-rv", "--raw_video"),"90"));
     auto world = World(configuration, implementation, occlusions);
     auto cells = world.create_cell_group();
     Map map(cells);
@@ -79,33 +80,9 @@ int main(int argc, char **argv){
 #else
     auto sync_led_locations = Location_list();
 #endif
-    Cv_server cv_server(camera_configuration, cam_file, bg_path, config.videos_folder, tracking_server, experiment_client, sync_led_locations, capture_parameters, p.contains(params_cpp::Key("-u")));
+    Cv_server cv_server(camera_configuration, cam_file, bg_path, config.videos_folder, tracking_server, experiment_client, sync_led_locations, capture_parameters, p.contains(params_cpp::Key("-u")), raw_video_frame_rate);
     auto &experiment_tracking_client = tracking_server.create_local_client<Experiment_tracking_client>();
     experiment_tracking_client.subscribe();
-
-    thread *fake_robot_thread = NULL;
-    atomic<bool> fake_robot_running = false;
-    auto fake_robot_location = Location(.5,.5); // Container of Locations
-    if (fake_robot) {
-        fake_robot_running = true;
-        fake_robot_thread = new thread([&fake_robot_location, &tracking_server, &fake_robot_running](){
-            int frame = 0;
-            Timer d;
-            auto step = Step();
-            // Send out "predator_step" while we are running fake_robot
-            while (fake_robot_running) {
-                Timer t(.05);
-                while (!t.time_out());
-                step.agent_name = "predator";
-                step.frame = frame ++;
-                step.time_stamp = d.to_seconds();
-                step.rotation = to_degrees(step.location.atan(fake_robot_location));
-                step.location = fake_robot_location;
-                tracking_server.send_step(step);
-            }
-        });
-    }
-
     experiment_server.set_tracking_client(experiment_tracking_client);
 
     cv_server.occlusions = world.create_cell_group().occluded_cells();
@@ -131,7 +108,7 @@ int main(int argc, char **argv){
     robot::Robot_agent robot(limits, cv_server.reset_robot_connection);
 
     if (!p.contains(params_cpp::Key("-n"))) {
-        if (!robot.connect("192.168.137.155", 4501)){    // switch back   4500, 4501 (red)
+        if (!robot.connect(robot_ip, robot_port)){
             cout << "Failed to connect to robot" << endl;
             //exit(1);
         }
@@ -141,7 +118,8 @@ int main(int argc, char **argv){
     Controller_server controller_server("../config/pid.json", robot, controller_tracking_client, controller_experiment_client,
                                         cv_server.robot_destination,
                                         cv_server.robot_normalized_destination,
-                                        cv_server.gravity_adjustment);
+                                        cv_server.gravity_adjustment,
+                                        manually_armed);
 
     if (!controller_server.start(Controller_service::get_port())) {
         cout << "failed to start controller" << endl;
@@ -153,10 +131,5 @@ int main(int argc, char **argv){
     cv_server.tracking_process();
     tracking_server.stop();
     experiment_client.disconnect();
-    if (fake_robot_running) {
-        fake_robot_running = false;
-        if (fake_robot_thread->joinable()) fake_robot_thread->join();
-        delete (fake_robot_thread);
-    }
     exit(0);
 }

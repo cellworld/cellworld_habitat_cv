@@ -36,18 +36,35 @@ def update_github_repository():
     run_commands(commands, cellworld_data_folder)
 
 
-def create_paths(world_configration, occlusions_name):
+def create_paths(world_configration, occlusions_name, robot):
     paths_file_name = "%s.%s.astar" % (world_configration, occlusions_name)
+    robot_str = ""
+    if robot:
+        paths_file_name += ".robot"
+        robot_str = "-r"
     paths_path = os.path.join(cellworld_data_folder, "paths", paths_file_name)
-    commands = ["./create_paths -c '%s' -o '%s' -of '%s'" % (world_configration, occlusions_name, paths_path)]
+    commands = ["./create_paths -c '%s' -o '%s' -of '%s' %s" % (world_configration, occlusions_name, paths_path, robot_str)]
     run_commands(commands, cellworld_bin_folder)
 
+def create_robot_world(world_configration, occlusions_name):
+    path_file_name = "%s.%s.occlusions.robot" % (world_configration, occlusions_name)
+    commands = ["./create_robot_occlusions -c '%s' -o '%s' -of '%s'" % (world_configration, occlusions_name, path_file_name)]
+    run_commands(commands, cellworld_bin_folder)
+#i was freaking out
 def create_visibility(world_configration, occlusions_name):
-    paths_file_name = "%s.%s.astar" % (world_configration, occlusions_name)
-    paths_path = os.path.join(cellworld_data_folder, "paths", paths_file_name)
-    commands = ["./create_visibility -c '%s' -o '%s' -of '%s'" % (world_configration, occlusions_name, paths_path)]
+    visibility_file_name = "%s.%s.cell_visibility" % (world_configration, occlusions_name)
+    commands = ["./create_visibility -c '%s' -o '%s' -of '%s'" % (world_configration, occlusions_name, visibility_file_name)]
     run_commands(commands, cellworld_bin_folder)
 
+def create_predator_destinations(world_configration, occlusions_name):
+    path_file_name = "%s.%s.predator_destinations" % (world_configration, occlusions_name)
+    commands = ["./create_predator_destinations -c '%s' -o '%s' -of '%s'" % (world_configration, occlusions_name, path_file_name)]
+    run_commands(commands, cellworld_bin_folder)
+
+def create_spawn_locations(world_configration, occlusions_name):
+    path_file_name = "%s.%s.spawn_locations" % (world_configration, occlusions_name)
+    commands = ["./create_spawn_locations -c '%s' -o '%s' -of '%s'" % (world_configration, occlusions_name, path_file_name)]
+    run_commands(commands, cellworld_bin_folder)
 
 # create_cell_visibility(world_configration, occlusions_name)
 # create_occlusions_robot(world_configration, occlusions_name)
@@ -88,13 +105,23 @@ def on_keypress(event):
     if event.key == "u":
         print("Saving world changes...")
         world.cells.occluded_cells().builder().save(occlusions_path)
+        print("Generating robot occlusions...")
+        create_robot_world(world_configration, occlusions_name)
+        print("Generating predator destinations...")
+        create_predator_destinations(world_configration, occlusions_name)
         print("Generating paths...")
-        create_paths(world_configration, occlusions_name)
+        create_paths(world_configration, occlusions_name, False)
+        print("Generating robot paths...")
+        create_paths(world_configration, occlusions_name, True)
         print("Generating cell visibility graph...")
         create_visibility(world_configration, occlusions_name)
+        print("Generating spawn locations...") #needs visibility
+        create_spawn_locations(world_configration, occlusions_name)
+        print("Done")
+
+    if event.key == "g":
         print("Updating repository...")
         update_github_repository()
-        print("Done")
         #
         # create_occlusions_robot(world_configration, occlusions_name)
         # create_predator_destinations(world_configration, occlusions_name)

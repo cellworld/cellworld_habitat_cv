@@ -13,12 +13,10 @@ namespace habitat_cv {
     struct Video {
         Video(const cv::Size &size, Image::Type type);
         ~Video();
-        bool new_video(const std::string &file_name);
+        bool new_video(const std::string &file_name, int fps = 90);
         bool close();
         bool add_frame(const Image &);
         bool is_open() const;
-        static void set_fps(unsigned int);
-        static unsigned int get_fps();
         std::string file_name;
         int frame_count;
         cv::Size size;

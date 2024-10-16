@@ -74,7 +74,7 @@ set( habitat_cv_files
         src/layouts.cpp
         src/background.cpp
         src/cv_service.cpp
-        ${habitat_cv_camera_file})
+        ${habitat_cv_camera_file} src/tools/create_robot_occlusions.cpp)
 
 add_library(habitat_cv ${habitat_cv_files})
 
@@ -160,6 +160,22 @@ add_executable(create_paths
 
 target_link_libraries(create_paths cellworld params-cpp)
 
+add_executable(create_robot_occlusions
+        src/tools/create_robot_occlusions.cpp)
+
+target_link_libraries(create_robot_occlusions cellworld params-cpp)
+
+add_executable(create_predator_destinations
+        src/tools/create_predator_destinations.cpp)
+
+target_link_libraries(create_predator_destinations cellworld params-cpp)
+
+
+add_executable(create_spawn_locations
+        src/tools/create_spawn_locations.cpp)
+
+target_link_libraries(create_spawn_locations cellworld params-cpp)
+
 add_executable(homography src/tools/homography.cpp)
 target_link_libraries(homography habitat_cv)
 
@@ -179,15 +195,15 @@ if (NOT ${USE_FAKE_CAMERA})
             habitat_cv
             cellworld
             params-cpp
-             ${OpenCV_LIBS} )
+            ${OpenCV_LIBS} )
 
     message (STATUS "Linking PIXCI libraries")
     target_link_libraries(camera_config
-        /usr/local/xclib/lib/xclib_x86_64.a m -pthread)
+            /usr/local/xclib/lib/xclib_x86_64.a m -pthread)
 
     target_link_libraries(habitat_cv
-        PRIVATE
-         /usr/local/xclib/lib/xclib_x86_64.a m -pthread )
+            PRIVATE
+            /usr/local/xclib/lib/xclib_x86_64.a m -pthread )
 else()
     add_executable(camera_test
             src/tools/camera_config.cpp

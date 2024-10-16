@@ -6,15 +6,11 @@ using namespace std;
 
 namespace habitat_cv {
 
-    unsigned int fps = 90;
-
-
-
     Video::Video(const cv::Size &size, Image::Type type):
-    frame_count(-1),
-    size(size),
-    type(type),
-    queue_check(5)
+            frame_count(-1),
+            size(size),
+            type(type),
+            queue_check(5)
     {
         if (type == Image::rgb) {
             fourcc = cv::VideoWriter::fourcc('m', 'p', '4', 'v');
@@ -57,7 +53,7 @@ namespace habitat_cv {
         close();
     }
 
-    bool Video::new_video(const std::string &new_file_name) {
+    bool Video::new_video(const std::string &new_file_name, int fps) {
         if (running) return false;
         close();
         running = new atomic_bool(true);
@@ -122,14 +118,6 @@ namespace habitat_cv {
 
     bool Video::is_open() const {
         return running && * running;
-    }
-
-    void Video::set_fps(unsigned int new_fps) {
-        fps = new_fps;
-    }
-
-    unsigned int Video::get_fps() {
-        return fps;
     }
 
     void Video::split_video(const vector <cv::Point2f> &tls, const cv::Size &crop_size) {
