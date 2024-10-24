@@ -759,8 +759,8 @@ namespace habitat_cv {
             mouse_profile(Resources::from("profile").key("mouse").get_resource<Profile>()),
             video_path(video_path),
             background_path(background_path),
-            sync_led_locations(sync_led_locations),
-            raw_video_frame_rate(raw_video_frame_rate)
+            raw_video_frame_rate(raw_video_frame_rate),
+            sync_led_locations(sync_led_locations)
     {
         experiment_client.cv_server = this;
 #ifdef USE_SYNCHRONIZATION

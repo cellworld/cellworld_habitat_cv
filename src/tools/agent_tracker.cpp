@@ -38,11 +38,16 @@ int main(int argc, char **argv){
     config.load("../config/agent_tracker_config.json");
 
     controller::Agent_operational_limits limits;
-    limits.load("../config/robot_operational_limits.json"); // robot, ghost
 
     bool fake_robot = p.contains(params_cpp::Key("-fr"));
 
     auto hab_config = p.get(params_cpp::Key("-hc", "--habitat_configuration"), "");
+
+    auto robot_operational_limits_file = p.get(params_cpp::Key("-rol", "--robot_operational_limits"), "../config/robot_operational_limits.json");
+    limits.load(robot_operational_limits_file); // robot, ghost
+
+    auto  robot_pid_values_file = p.get(params_cpp::Key("-rpv", "--robot_pid_values_file"), "../config/pid.json");
+
 
     auto robot_ip = p.get(params_cpp::Key("-ri", "--robot_ip"), "192.168.137.155");
     auto robot_port = stoi(p.get(params_cpp::Key("-rp", "--robot_port"), "4500"));
@@ -141,7 +146,7 @@ int main(int argc, char **argv){
     }
 
     Controller_service::set_logs_folder("controller/");
-    Controller_server controller_server("../config/pid.json", robot, controller_tracking_client, controller_experiment_client,
+    Controller_server controller_server(robot_pid_values_file, robot, controller_tracking_client, controller_experiment_client,
                                         cv_server.robot_destination,
                                         cv_server.robot_normalized_destination,
                                         cv_server.gravity_adjustment,
