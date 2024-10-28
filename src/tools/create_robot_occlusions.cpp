@@ -45,10 +45,10 @@ bool must_occlude(Coordinates coord, Coordinates_list &cnn_pat, Map &map1){
 
 int main (int argc, char **argv){
     Parser p(argc,argv);
-    auto occlusions = p.get(Key("-o","--occlusions"),"21_05");
+    auto occlusions = p.get(Key("-o","--occlusions"),"");
     auto configuration = p.get(Key("-c","--configuration"),"hexagonal");
     auto folder = Resources::cache_folder();
-    auto output_file = folder + "/cell_group/" + p.get(Key("-of","--output_file"), "");
+    auto output_file = p.get(Key("-of","--output_file"),folder + "/cell_group/" + configuration + "." + occlusions + ".occlusions.robot");
 
     // load world and create new_world to modify
     auto world1 = World::get_from_parameters_name(configuration, "canonical", occlusions);
@@ -69,6 +69,7 @@ int main (int argc, char **argv){
         }
     }
     cg2.occluded_cells().save(output_file);
+    cout << "robot occlusions saved to " << output_file << endl;
     return 0;
 }
 

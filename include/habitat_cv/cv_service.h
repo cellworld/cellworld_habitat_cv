@@ -87,7 +87,7 @@ namespace habitat_cv{
         Cv_server_experiment_client &experiment_client;
 
         unsigned int mouse_threshold = 90; //45
-        unsigned int robot_threshold = 240; //250;
+        unsigned int robot_threshold = 250; //250;
 
         cell_world::Capture_parameters capture_parameters;
 

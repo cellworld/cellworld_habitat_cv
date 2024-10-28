@@ -15,7 +15,7 @@ int main (int argc, char **argv){
     auto occlusions = p.get(Key("-o","--occlusions"),"");
     auto folder = Resources::cache_folder();
     auto configuration = p.get(Key("-c","--configuration"),"hexagonal");
-    auto output_file = folder + "/cell_group/" + p.get(Key("-of","--output_file"), "");
+    auto output_file = p.get(Key("-of","--output_file"),folder + "/cell_group/" + configuration + "." + occlusions + ".predator_destinations");
 
     World world = World::get_from_parameters_name(configuration,"canonical", occlusions);
     Graph graph = world.create_graph();
@@ -28,4 +28,5 @@ int main (int argc, char **argv){
         }
     }
     pd.save(output_file);
+    cout << "predator destinations saved to " << output_file << endl;
 }

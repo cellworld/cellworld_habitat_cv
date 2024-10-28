@@ -8,7 +8,7 @@ from tkinter import filedialog, simpledialog
 
 if len(sys.argv) == 2:
     world_configration = sys.argv[1]
-    occlusions_name = simpledialog.askstring(title="Map Editor", prompt="Worlds name:")
+    occlusions_name = simpledialog.askstring(title="Map Editor", prompt="World's name:")
     if occlusions_name is None:
         exit()
 
@@ -46,24 +46,32 @@ def create_paths(world_configration, occlusions_name, robot):
     commands = ["./create_paths -c '%s' -o '%s' -of '%s' %s" % (world_configration, occlusions_name, paths_path, robot_str)]
     run_commands(commands, cellworld_bin_folder)
 
+
 def create_robot_world(world_configration, occlusions_name):
     path_file_name = "%s.%s.occlusions.robot" % (world_configration, occlusions_name)
-    commands = ["./create_robot_occlusions -c '%s' -o '%s' -of '%s'" % (world_configration, occlusions_name, path_file_name)]
+    paths_path = os.path.join(cellworld_data_folder, "cell_group", path_file_name)
+    commands = ["./create_robot_occlusions -c '%s' -o '%s' -of '%s'" % (world_configration, occlusions_name, paths_path)]
     run_commands(commands, cellworld_bin_folder)
-#i was freaking out
+
+
 def create_visibility(world_configration, occlusions_name):
     visibility_file_name = "%s.%s.cell_visibility" % (world_configration, occlusions_name)
-    commands = ["./create_visibility -c '%s' -o '%s' -of '%s'" % (world_configration, occlusions_name, visibility_file_name)]
+    paths_path = os.path.join(cellworld_data_folder, "graph", visibility_file_name)
+    commands = ["./create_visibility -c '%s' -o '%s' -of '%s'" % (world_configration, occlusions_name, paths_path)]
     run_commands(commands, cellworld_bin_folder)
+
 
 def create_predator_destinations(world_configration, occlusions_name):
     path_file_name = "%s.%s.predator_destinations" % (world_configration, occlusions_name)
-    commands = ["./create_predator_destinations -c '%s' -o '%s' -of '%s'" % (world_configration, occlusions_name, path_file_name)]
+    paths_path = os.path.join(cellworld_data_folder, "cell_group", path_file_name)
+    commands = ["./create_predator_destinations -c '%s' -o '%s' -of '%s'" % (world_configration, occlusions_name, paths_path)]
     run_commands(commands, cellworld_bin_folder)
+
 
 def create_spawn_locations(world_configration, occlusions_name):
     path_file_name = "%s.%s.spawn_locations" % (world_configration, occlusions_name)
-    commands = ["./create_spawn_locations -c '%s' -o '%s' -of '%s'" % (world_configration, occlusions_name, path_file_name)]
+    paths_path = os.path.join(cellworld_data_folder, "cell_group", path_file_name)
+    commands = ["./create_spawn_locations -c '%s' -o '%s' -of '%s'" % (world_configration, occlusions_name, paths_path)]
     run_commands(commands, cellworld_bin_folder)
 
 # create_cell_visibility(world_configration, occlusions_name)
@@ -78,6 +86,8 @@ if os.path.exists(occlusions_path):
 world = World.get_from_parameters_names("hexagonal", "canonical")
 world.set_occlusions(occlusions)
 display = Display(world, animated=True)
+display.fig.canvas.manager.set_window_title(occlusions_name)
+
 
 def on_click(button, cell):
     from matplotlib.backend_bases import MouseButton
@@ -88,6 +98,7 @@ def on_click(button, cell):
 
 
 def on_keypress(event):
+    global occlusions_name, occlusions_file_name, occlusions_path, display
 
     if event.key == "o":
         file_name = filedialog.askopenfile(filetypes=[("Cell Group file", "json")]).name
@@ -102,9 +113,16 @@ def on_keypress(event):
         else:
             world.cells.occluded_cells().builder().save(file_name)
 
+    if event.key == "n":
+        occlusions_name = simpledialog.askstring(title="Map Editor", prompt="New world's name:")
+        occlusions_file_name = "%s.%s.occlusions" % (world_configration, occlusions_name)
+        occlusions_path = os.path.join(cellworld_data_folder, "cell_group", occlusions_file_name)
+        display.fig.canvas.manager.set_window_title(occlusions_name)
+
     if event.key == "u":
         print("Saving world changes...")
         world.cells.occluded_cells().builder().save(occlusions_path)
+        print("occlusions saved to %s" % occlusions_path)
         print("Generating robot occlusions...")
         create_robot_world(world_configration, occlusions_name)
         print("Generating predator destinations...")

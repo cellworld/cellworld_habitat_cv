@@ -30,6 +30,15 @@ struct Agent_tracker_configuration : Json_object {
     string config_folder;
 };
 
+struct Thresholds : Json_object {
+    Json_object_members(
+            Add_member(mouse_threshold);
+            Add_member(robot_threshold);
+    )
+    int mouse_threshold = 90;
+    int robot_threshold = 250;
+};
+
 int main(int argc, char **argv){
 
     params_cpp::Parser p(argc,argv);
@@ -43,10 +52,17 @@ int main(int argc, char **argv){
 
     auto hab_config = p.get(params_cpp::Key("-hc", "--habitat_configuration"), "");
 
-    auto robot_operational_limits_file = p.get(params_cpp::Key("-rol", "--robot_operational_limits"), "../config/robot_operational_limits.json");
-    limits.load(robot_operational_limits_file); // robot, ghost
+    auto robot_operational_limits_file = p.get(params_cpp::Key("-rol", "--robot_operational_limits"), "robot_operational_limits.json");
 
-    auto  robot_pid_values_file = p.get(params_cpp::Key("-rpv", "--robot_pid_values_file"), "../config/pid.json");
+    limits.load("../config/" + robot_operational_limits_file); // robot, ghost
+
+    Thresholds thresholds;
+    auto thresholds_file = p.get(params_cpp::Key("-tf", "--thresholds_file"), "");
+    if (!thresholds_file.empty()) {
+        thresholds.load("../config/" + thresholds_file);
+    }
+
+    auto  robot_pid_values_file = p.get(params_cpp::Key("-rpv", "--robot_pid_values_file"), "pid.json");
 
 
     auto robot_ip = p.get(params_cpp::Key("-ri", "--robot_ip"), "192.168.137.155");
@@ -88,6 +104,8 @@ int main(int argc, char **argv){
     auto sync_led_locations = Location_list();
 #endif
     Cv_server cv_server(camera_configuration, cam_file, bg_path, config.videos_folder, tracking_server, experiment_client, sync_led_locations, capture_parameters, p.contains(params_cpp::Key("-u")), raw_video_frame_rate);
+    cv_server.mouse_threshold = thresholds.mouse_threshold;
+    cv_server.robot_threshold = thresholds.robot_threshold;
     auto &experiment_tracking_client = tracking_server.create_local_client<Experiment_tracking_client>();
     experiment_tracking_client.subscribe();
 
@@ -146,7 +164,7 @@ int main(int argc, char **argv){
     }
 
     Controller_service::set_logs_folder("controller/");
-    Controller_server controller_server(robot_pid_values_file, robot, controller_tracking_client, controller_experiment_client,
+    Controller_server controller_server("../config/" + robot_pid_values_file, robot, controller_tracking_client, controller_experiment_client,
                                         cv_server.robot_destination,
                                         cv_server.robot_normalized_destination,
                                         cv_server.gravity_adjustment,

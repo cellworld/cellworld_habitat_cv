@@ -1,6 +1,5 @@
 #include <cell_world.h>
 #include <params_cpp.h>
-#include <params_cpp.h>
 
 using namespace params_cpp;
 using namespace cell_world;
@@ -10,14 +9,13 @@ using namespace json_cpp;
 
 int main (int argc, char **argv){
     Parser p(argc,argv);
-    auto occlusions = p.get(Key("-o","--occlusions"),"21_05");
+    auto occlusions = p.get(Key("-o","--occlusions"),"");
     auto configuration = p.get(Key("-c","--configuration"),"hexagonal");
     auto folder = Resources::cache_folder();
-    auto output_file = folder + "/cell_group/" + p.get(Key("-of","--output_file"), "");
+    auto output_file = p.get(Key("-of","--output_file"),folder + "/cell_group/" + configuration + "." + occlusions + ".spawn_locations");
     auto threshold = stof(p.get(Key("-d","--distance"),"0.5"));
 
     World world = World::get_from_parameters_name(configuration,"canonical", occlusions);
-
     auto cells = world.create_cell_group();
     Cell_group pd = world.create_cell_group(Resources::from("cell_group").key("hexagonal").key(occlusions).key("predator_destinations").get_resource<Cell_group_builder>());
     Graph g = world.create_graph();
@@ -32,5 +30,6 @@ int main (int argc, char **argv){
             spawn_locations.add(cell);
         }
     }
-    spawn_locations.save(output_file);  // MAKE SURE WORLD ARE IS NAMED PROPERLY
+    spawn_locations.save(output_file);
+    cout << "spawn locations saved to " << output_file << endl;
 }
