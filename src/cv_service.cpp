@@ -200,7 +200,6 @@ namespace habitat_cv {
         cam1,
         cam2,
         cam3,
-        sync_led,
         led,
 
     };
@@ -472,10 +471,10 @@ namespace habitat_cv {
                 case Screen_image::difference :
                     screen_frame = screen_layout.get_frame(composite.get_subtracted_small(), "difference", fr.filtered_fps);
                     break;
-                case Screen_image::sync_led :
+//                case Screen_image::sync_led :
 #ifdef USE_SYNCHRONIZATION
-                    screen_frame = screen_layout.get_frame(raw_layout.get_frame(sync_led_images), "sync led", fr.filtered_fps);
-                    break;
+//                    screen_frame = screen_layout.get_frame(raw_layout.get_frame(sync_led_images), "sync led", fr.filtered_fps);
+//                    break;
 #endif
                 case Screen_image::led :
                     screen_frame = screen_layout.get_frame(Image(composite.get_detection_threshold(robot_threshold),""), "LEDs", fr.filtered_fps);

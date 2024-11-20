@@ -66,10 +66,10 @@ namespace habitat_cv {
 
     Raw_layout::Raw_layout() :
             Layout(1080, 1180, Image::Type::gray),
-            panel0({540, 590}, Image::Type::gray),
-            panel1({540, 590}, Image::Type::gray),
-            panel2({540, 590}, Image::Type::gray),
-            panel3({540, 590}, Image::Type::gray) {
+            panel0({590, 540}, Image::Type::gray),
+            panel1({590, 540}, Image::Type::gray),
+            panel2({590, 540}, Image::Type::gray),
+            panel3({590, 540}, Image::Type::gray) {
         add_place_holder(panel0, {0, 0});
         add_place_holder(panel1, {590, 0});
         add_place_holder(panel2, {0, 540});

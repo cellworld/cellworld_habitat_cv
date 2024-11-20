@@ -7,24 +7,30 @@ using namespace std;
 using namespace cell_world;
 
 bool must_occlude(Coordinates coord, Coordinates_list &cnn_pat, Map &map1){
+    Coordinates_list out_of_bounds_sides;
+    Coordinates_list occluded_sides;
     Coordinates_list blocked_sides;
     for (auto cn: cnn_pat){
         auto c = coord + cn;
         // check if new coordinate is in world
         if (map1.find(c) == Not_found){
+            out_of_bounds_sides.push_back(cn);
             blocked_sides.push_back(cn);
             continue;
         }
 
         // check if new coordinate is occluded
         if (map1[c].occluded) {
+            occluded_sides.push_back(cn);;
             blocked_sides.push_back(cn);
         }
     }
+    //is a corner
+    if (out_of_bounds_sides.size() == 3 && occluded_sides.empty() ) return false;
     // 0 or 1 side blocked is ok
-    if (blocked_sides.size()<2) return false;
+    if (blocked_sides.size() < 2) return false;
     // 3,4,5,6 sides blocked must be occluded
-    if (blocked_sides.size()>2) return true;
+    if (blocked_sides.size() > 2) return true;
 
     // if 2 sides are blocked, we need to check if they are adjacent
 
