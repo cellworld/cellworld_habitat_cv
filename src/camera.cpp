@@ -37,10 +37,8 @@ namespace habitat_cv{
     }
 
     void Camera::init(const std::string &config_file) {
-        pxd_PIXCIopen("-DM 0xF", "", config_file.c_str());
+        pxd_PIXCIopen("-DM 0xF", "", config_file.c_str()); //TODO: "-DM 0xF" hard coded to 4 cameras (F), modify to be flexible for different camera counts (eg. for 1 camera: "-DM 0x1", 2 camera: "-DM 0x3", 3 camera: "-DM 0x7", 4 camera: "-DM 0xF")
     }
-
-
 
     Image &Camera::get_current_frame() {
         while (last_read_frame == current_frame) this_thread::sleep_for(1ms); //waits until the next frame is ready
