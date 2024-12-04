@@ -379,17 +379,17 @@ namespace habitat_cv {
             }
             //PERF_STOP("SCREEN_MOUSE");
             //PERF_START("SCREEN_MARKERS");
-            if (show_markers) {
-                for (unsigned int c = 0; c < 4; c++){
-                    auto &ci = composite.get_raw(c);
-                    auto ms = ci.get_markers();
-                    for (auto &m : ms){
-                        auto mwp = composite.get_warped_point(c, m.centroid);
-                        auto ml = composite.get_video().get_location(mwp);
-                        composite.get_video().circle(ml, 25, {0,0,255}, false);
-                    }
-                }
-            }
+            // if (show_markers) {
+            //     for (unsigned int c = 0; c < 4; c++){
+            //         auto &ci = composite.get_raw(c);
+            //         auto ms = ci.get_markers();
+            //         for (auto &m : ms){
+            //             auto mwp = composite.get_warped_point(c, m.centroid);
+            //             auto ml = composite.get_video().get_location(mwp);
+            //             composite.get_video().circle(ml, 25, {0,0,255}, false);
+            //         }
+            //     }
+            // }
             //PERF_STOP("SCREEN_MARKERS");
             //PERF_STOP("SCREEN");
             //PERF_START("MESSAGE");
